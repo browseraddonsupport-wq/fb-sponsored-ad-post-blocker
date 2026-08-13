@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.38
+
+### Changed
+
+- **The `DEBUG` perf line now reports MutationObserver cost separately.** It
+  previously timed `scanRoot` only, so everything the observer callback does —
+  including `cacheLabelTargets` walking every subtree Facebook inserts during
+  its initial render — was invisible. That blind spot had already hidden one
+  regression: the retry-loop freeze fixed in 1.1.35 reported a healthy
+  `1.0ms across 274 scans` while the page was unusable.
+
+  Measured on a real feed, the observer costs 2–16ms per 2s window and falls
+  after load rather than spiking during it, which ruled it out as the cause of
+  a slow first paint that had been attributed to it.
+- README leads with an **Install** section pointing at the store listings.
+  Both sideload sections are now labelled `Development:` — a temporary add-on
+  disappears on restart and never updates, so it is the wrong way to install
+  this for normal use.
+
+No behaviour change in release builds: the instrumentation is `DEBUG`-only.
+
 ## 1.1.37
 
 ### Added
