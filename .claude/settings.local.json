@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "PowerShell(node -v)",
+      "PowerShell(npm -v)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Random/AppData/Roaming/**)",
+      "Bash(where.exe node *)",
+      "Read(//c/Users/Random/scoop/**)",
+      "Read(//c/Users/Random/AppData/Local/Programs/**)",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "Bash(node --check content.js)",
+      "Bash(cd \"/c/Users/Random\" && ls \"Firefox Extension\")",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(\"/c/Users/Random/AppData/Local/Programs/Python/Python312/python.exe\" -m pip install --quiet --upgrade pip pillow)",
+      "Bash(ls -la \"/c/Users/Random\" 2>&1 | head -30)",
+      "Bash(mkdir -p \"/c/Users/Random/Documents/MonitorCropTool\")",
+      "Bash(python -m http.server 8770 --bind 127.0.0.1)",
+      "Bash(python -m http.server 8771 --bind 127.0.0.1)",
+      "Bash(python -m http.server 8772 --bind 127.0.0.1)",
+      "Bash(python -m http.server 8780 --bind 127.0.0.1)",
+      "Bash(unzip -l fb-sponsored-ad-post-blocker-chrome.zip)",
+      "Bash(xxd)",
+      "Bash(python -c \"import json;d=json.load\\(open\\('dist/chrome/manifest.json'\\)\\);print\\('valid JSON, version',d['version']\\);print\\('background:',d['background']\\);print\\('bss present:', 'browser_specific_settings' in d\\);print\\('icons:',list\\(d['icons'].values\\(\\)\\)\\)\")",
+      "Bash(python -c \"import json;d=json.load\\(open\\('dist/firefox/manifest.json'\\)\\);print\\('background:',d['background']\\);print\\('bss present:', 'browser_specific_settings' in d\\);print\\('icons:',list\\(d['icons'].values\\(\\)\\)\\)\")",
+      "Bash(python -m http.server 8791 --bind 127.0.0.1)"
+    ]
+  }
+}

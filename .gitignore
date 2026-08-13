@@ -1,0 +1,6 @@
+# Build output. Everything here is reproducible from source with build.ps1,
+# and the zips are rewritten on every run — tracking them would mean a diff on
+# each build with nothing to review.
+dist/
+*.zip
+*.xpi

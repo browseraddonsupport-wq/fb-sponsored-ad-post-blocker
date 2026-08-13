@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>F.B. Sponsored/Ad Post Blocker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>F.B. Sponsored/Ad Post Blocker</h1>
+    </header>
+
+    <section class="count-row">
+      <span class="count" id="count">0</span>
+      <span class="count-label">posts hidden on this tab</span>
+    </section>
+
+    <p id="notFacebook" class="not-facebook" hidden>
+      Open a facebook.com tab to see stats for it. Settings below still apply everywhere.
+    </p>
+
+    <section class="options">
+      <label class="option">
+        <input type="checkbox" id="hideSponsored" />
+        <span>Hide "Sponsored" posts</span>
+      </label>
+      <label class="option">
+        <input type="checkbox" id="hideSuggested" />
+        <span>Hide "Suggested for you" posts</span>
+      </label>
+      <label class="option">
+        <input type="checkbox" id="hideUnfollowed" />
+        <span>Hide posts from Pages/Groups you don't follow</span>
+      </label>
+      <label class="option">
+        <input type="checkbox" id="placeholderMode" />
+        <span>Show a "Show" placeholder instead of removing completely</span>
+      </label>
+    </section>
+
+    <footer>Changes apply immediately, no reload needed.</footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

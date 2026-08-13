@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "F.B. Sponsored/Ad Post Blocker",
+  "version": "1.1.35",
+  "description": "Hides sponsored ads, \"Suggested for You\" posts, and posts from Pages/Groups you don't follow, from your Facebook feed.",
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.facebook.com/*"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.facebook.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon.svg"
+    },
+    "default_title": "F.B. Sponsored/Ad Post Blocker"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{03db6d98-0a7b-4cf9-b274-43da2000a9d5}",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
