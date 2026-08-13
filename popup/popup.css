@@ -13,6 +13,39 @@ h1 {
   margin: 0 0 10px;
 }
 
+/* Deliberately the loudest thing in the popup: while this is showing, the
+   extension is doing nothing at all, and every other control is moot. */
+.permission {
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fff3cd;
+  border: 1px solid #ffe08a;
+  border-radius: 8px;
+}
+
+.permission p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.permission button {
+  width: 100%;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #1877f2;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.permission button:hover {
+  background: #166fe5;
+}
+
 .count-row {
   display: flex;
   align-items: baseline;

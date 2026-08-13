@@ -10,6 +10,18 @@
       <h1>F.B. Sponsored/Ad Post Blocker</h1>
     </header>
 
+    <!-- Firefox MV3 does not grant host permissions at install, so on a fresh
+         install nothing is hidden and the extension looks broken. Asking here
+         works because a popup click is a user gesture, which permissions
+         .request() requires. Hidden entirely once access is granted. -->
+    <section id="permissionPrompt" class="permission" hidden>
+      <p>
+        This extension needs permission to run on facebook.com before it can
+        hide anything.
+      </p>
+      <button type="button" id="grantAccess">Allow on facebook.com</button>
+    </section>
+
     <section class="count-row">
       <span class="count" id="count">0</span>
       <span class="count-label">posts hidden on this tab</span>

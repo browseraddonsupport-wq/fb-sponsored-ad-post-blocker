@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.36
+
+### Added
+
+- **The popup now asks for facebook.com access when it doesn't have it.**
+  Firefox MV3 does not grant host permissions at install, so a fresh install
+  from AMO hides nothing and looks broken — the toolbar badge and popup work,
+  because only the content script is missing. The popup now checks for access
+  and, if absent, shows a prompt with an "Allow on facebook.com" button that
+  requests it directly. Granting also reloads the open Facebook tab, since the
+  content script is not retro-injected into tabs that were already open.
+
+  Chromium grants host permissions at install, so the check passes there and
+  the prompt never appears. The permission check fails open: if it throws, the
+  popup renders normally rather than nagging for access it may already have.
+
 ## 1.1.35
 
 ### Fixed
