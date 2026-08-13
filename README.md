@@ -10,6 +10,22 @@ does not serve both the same markup: as of 1.1.35 Chromium gets sponsored
 labels drawn as SVG sprites while Firefox still gets scrambled text, and the
 extension handles both. Test a detection change on both before believing it.
 
+## Install
+
+- **Firefox / Waterfox** — install from addons.mozilla.org (search for
+  "F.B. Sponsored/Ad Post Blocker").
+- **Chrome / Edge / Brave / Opera** — install from the Chrome Web Store.
+
+On Firefox you will be asked to allow the extension to run on facebook.com.
+It cannot hide anything until you do: Firefox does not grant that access at
+install, and without it the extension is inert. A setup page opens on first
+install to ask, and the toolbar popup will keep offering if you dismiss it.
+
+The instructions further down for loading an unpacked or temporary copy are
+for working on the extension. A temporary add-on is removed when Firefox
+restarts and never updates itself, so it is the wrong way to install this for
+normal use.
+
 ## How it works
 
 Facebook's DOM class names are obfuscated and change constantly, but a
@@ -162,7 +178,7 @@ the source stays at `false` either way.
 Build artifacts are gitignored — every zip is reproducible from source, and
 they are rewritten on each run.
 
-## Load it in Firefox (temporary, for development)
+## Development: load it in Firefox (temporary)
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…**
@@ -180,7 +196,7 @@ the extension looks installed and enabled and the badge works, because the
 background script runs regardless. If nothing is being hidden until you click
 the toolbar icon, check site access first (`about:addons` → Permissions).
 
-## Load it in Chrome/Edge/Brave (unpacked, for development)
+## Development: load it in Chrome/Edge/Brave (unpacked)
 
 1. Run `build.ps1`
 2. Open `chrome://extensions`, enable **Developer mode**

@@ -728,7 +728,10 @@ const LABEL_SELECTOR = "span, a, use, [aria-label], [aria-labelledby]";
 // reproduce a real feed well enough to answer it — so measure in place and
 // report a rolling summary. If total time here is a few ms per second we are
 // not the bottleneck no matter what else is wrong; if it is hundreds, we are.
-const stats = { ms: 0, scans: 0, elements: 0, reportedAt: 0, matched: {}, hidden: 0 };
+const stats = {
+  ms: 0, scans: 0, elements: 0, reportedAt: 0, matched: {}, hidden: 0,
+  observerMs: 0, observerCalls: 0,
+};
 
 function reportStats(now) {
   if (!DEBUG || now - stats.reportedAt < 2000) return;
@@ -739,6 +742,7 @@ function reportStats(now) {
     console.log(
       `[fbsb] perf: ${stats.ms.toFixed(1)}ms across ${stats.scans} scans, ` +
       `${stats.elements} elements (last ${((now - stats.reportedAt) / 1000).toFixed(1)}s) | ` +
+      `observer: ${stats.observerMs.toFixed(1)}ms across ${stats.observerCalls} calls | ` +
       `matched: ${matched} | hidden: ${stats.hidden}`
     );
   }
@@ -747,6 +751,8 @@ function reportStats(now) {
   stats.elements = 0;
   stats.matched = {};
   stats.hidden = 0;
+  stats.observerMs = 0;
+  stats.observerCalls = 0;
   stats.reportedAt = now;
 }
 
@@ -819,6 +825,7 @@ function stillQualifies(container, info) {
 }
 
 const observer = new MutationObserver((mutations) => {
+  const observerStartedAt = DEBUG ? performance.now() : 0;
   for (const mutation of mutations) {
     if (mutation.addedNodes.length > 0 && mutation.target.nodeType === Node.ELEMENT_NODE) {
       const staleContainer = mutation.target.closest("[data-fbsb-hidden]");
@@ -836,6 +843,15 @@ const observer = new MutationObserver((mutations) => {
       cacheLabelTargets(node);
       scheduleScan(node);
     }
+  }
+  // Timed separately from scanRoot on purpose. This callback runs
+  // synchronously on every DOM mutation Facebook makes, including the whole of
+  // its initial render, and cacheLabelTargets walks each added subtree — none
+  // of which the scan timer sees. A regression here is invisible in the scan
+  // figure while being exactly what makes a page feel slow.
+  if (DEBUG) {
+    stats.observerMs += performance.now() - observerStartedAt;
+    stats.observerCalls += 1;
   }
 });
 
