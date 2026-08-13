@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>F.B. Sponsored/Ad Post Blocker — Setup</title>
+    <link rel="stylesheet" href="onboarding.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Almost ready</h1>
+
+      <!-- Shown when the extension does not yet have facebook.com access.
+           Firefox MV3 never grants it at install, and without it the content
+           script never runs, so the extension silently does nothing. -->
+      <section id="needsAccess" hidden>
+        <p class="lede">
+          One permission left. This extension can't read your Facebook feed —
+          and so can't hide anything in it — until you allow it to run on
+          facebook.com.
+        </p>
+        <button type="button" id="grantAccess">Allow on facebook.com</button>
+        <p class="note">
+          Your browser will ask you to confirm. The extension requests access
+          to facebook.com only, stores your settings on this device, and sends
+          nothing anywhere.
+        </p>
+      </section>
+
+      <!-- Shown when access is already granted: always the case on Chromium,
+           which grants host permissions at install. -->
+      <section id="allSet" hidden>
+        <p class="lede">You're all set. Sponsored posts will be hidden from your feed.</p>
+        <a class="button" id="openFacebook" href="https://www.facebook.com/">Open Facebook</a>
+        <p class="note">
+          Click the toolbar icon any time to change what gets hidden, or to see
+          how many posts have been hidden on the current tab.
+        </p>
+      </section>
+
+      <section class="what">
+        <h2>What it hides, by default</h2>
+        <ul>
+          <li>Sponsored posts and ads</li>
+          <li>"Suggested for you" posts</li>
+          <li>Posts from Pages and Groups you don't follow</li>
+        </ul>
+        <p class="note">
+          Each is a checkbox in the toolbar popup. If your feed looks too
+          sparse, "Pages and Groups you don't follow" is the broadest and the
+          first one to turn off.
+        </p>
+      </section>
+    </main>
+
+    <script src="onboarding.js"></script>
+  </body>
+</html>

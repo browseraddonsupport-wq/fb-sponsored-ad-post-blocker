@@ -15,6 +15,20 @@ const browser = globalThis.browser ?? globalThis.chrome;
 
 const BADGE_COLOR = "#1877F2";
 
+// Open the setup page once, on first install only. Firefox MV3 grants no host
+// permissions at install, so without this a new user sees an extension that
+// silently does nothing and has no reason to open the popup — the one place
+// that explains why. Gated on "install" so upgrades don't reopen it, and
+// wrapped because onInstalled is not worth failing the background script over.
+browser.runtime.onInstalled.addListener((details) => {
+  if (details.reason !== "install") return;
+  try {
+    browser.tabs.create({ url: browser.runtime.getURL("onboarding/onboarding.html") });
+  } catch {
+    /* Not being able to open the setup page must not break anything else. */
+  }
+});
+
 function setCount(tabId, count) {
   browser.action.setBadgeText({ tabId, text: count > 0 ? String(count) : "" });
   browser.action.setBadgeBackgroundColor({ tabId, color: BADGE_COLOR });

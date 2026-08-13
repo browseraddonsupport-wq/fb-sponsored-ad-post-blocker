@@ -39,9 +39,10 @@ $pngIcons = [ordered]@{
 }
 
 function Copy-Payload($dest) {
-    New-Item -ItemType Directory -Force $dest, "$dest\icons", "$dest\popup" | Out-Null
+    New-Item -ItemType Directory -Force $dest, "$dest\icons", "$dest\popup", "$dest\onboarding" | Out-Null
     foreach ($f in $shared) { Copy-Item (Join-Path $root $f) (Join-Path $dest $f) }
     Copy-Item "$root\popup\*" "$dest\popup\"
+    Copy-Item "$root\onboarding\*" "$dest\onboarding\"
 
     if ($Diagnostic) {
         $target = Join-Path $dest "content.js"

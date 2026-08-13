@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.37
+
+### Added
+
+- **A setup page opens once, on first install.** The popup prompt added in
+  1.1.36 only helps someone who opens the popup, and a new Firefox user has no
+  reason to: the extension appears installed and simply does nothing. The page
+  explains that facebook.com access is still needed and requests it directly.
+
+  It reads the current permission state rather than assuming: where access is
+  already granted — always the case on Chromium — it shows a short "you're all
+  set" confirmation instead of asking for anything. Gated on
+  `reason === "install"` so upgrades don't reopen it, and the `tabs.create`
+  call is wrapped, because failing to open a setup page must not take the
+  background script down with it.
+- `build.ps1` copies `onboarding/`. The payload is an explicit file list, so a
+  new directory ships only when added here — worth remembering when adding
+  another.
+
 ## 1.1.36
 
 ### Added
