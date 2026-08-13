@@ -4,3 +4,6 @@
 dist/
 *.zip
 *.xpi
+
+# Machine-local tool permissions, not project configuration.
+.claude/settings.local.json

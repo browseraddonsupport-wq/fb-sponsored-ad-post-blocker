@@ -1,8 +1,14 @@
 # F.B. Sponsored/Ad Post Blocker
 
-A small Firefox extension that hides "Sponsored" (and optionally "Suggested
+A small browser extension that hides "Sponsored" (and optionally "Suggested
 for you", and posts from Pages/Groups you don't follow) from your Facebook
 feed and the right-hand sidebar.
+
+Runs on Firefox/Waterfox and on Chromium browsers (Chrome, Edge, Brave,
+Opera) from a single source tree — see "Building" below. Note that Facebook
+does not serve both the same markup: as of 1.1.35 Chromium gets sponsored
+labels drawn as SVG sprites while Firefox still gets scrambled text, and the
+extension handles both. Test a detection change on both before believing it.
 
 ## How it works
 
@@ -128,11 +134,33 @@ page is unusable. Don't treat it as sufficient evidence on its own.
 
 ## Files
 
-- `manifest.json` — extension manifest (Manifest V3, Firefox)
+- `manifest.json` — extension manifest (Manifest V3, Firefox form; `build.ps1`
+  transforms it for Chromium)
 - `content.js` / `content.css` — detection + hiding logic, injected into facebook.com
 - `background.js` — tracks a per-tab "posts hidden" count for the toolbar badge/popup
 - `popup/` — toolbar popup with on/off toggles and the hidden-post count
-- `icons/icon.svg` — toolbar/extension icon
+- `icons/icon.svg` — toolbar/extension icon (Firefox)
+- `icons/icon-{16,32,48,128}.png` — the same icon rasterised; Chromium does not
+  support SVG icons
+- `build.ps1` — produces both packages
+- `CHANGELOG.md` — what changed and, more usefully, which approaches were tried
+  and rejected
+- `store-release-notes.md` — listing copy for AMO and the Chrome Web Store
+  (not shipped in the package)
+
+## Building
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
+```
+
+Writes `fb-sponsored-ad-post-blocker.zip` (Firefox) and
+`fb-sponsored-ad-post-blocker-chrome.zip` (Chromium), plus unpacked copies
+under `dist/`. Add `-Diagnostic` for `-debug` packages with `DEBUG` enabled;
+the source stays at `false` either way.
+
+Build artifacts are gitignored — every zip is reproducible from source, and
+they are rewritten on each run.
 
 ## Load it in Firefox (temporary, for development)
 
@@ -143,6 +171,23 @@ page is unusable. Don't treat it as sufficient evidence on its own.
 The extension reloads automatically until you restart Firefox; re-run the
 steps above after a restart, or package it (see below) for a persistent
 install.
+
+Firefox MV3 treats host access as opt-in, and declaring `content_scripts`
+alone does not request it — without the `host_permissions` entry in the
+manifest the extension defaults to "run only when you click it", and the
+content script is never injected on load. That failure is easy to misread:
+the extension looks installed and enabled and the badge works, because the
+background script runs regardless. If nothing is being hidden until you click
+the toolbar icon, check site access first (`about:addons` → Permissions).
+
+## Load it in Chrome/Edge/Brave (unpacked, for development)
+
+1. Run `build.ps1`
+2. Open `chrome://extensions`, enable **Developer mode**
+3. **Load unpacked** → select `dist/chrome`
+
+Note `dist/chrome` holds whichever variant you built last, so run `build.ps1`
+without `-Diagnostic` if you want the release behaviour (no logging).
 
 ## Settings
 
