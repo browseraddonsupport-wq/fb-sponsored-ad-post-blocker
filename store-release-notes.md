@@ -50,6 +50,58 @@ placeholder, and posts are hidden faster on page load.
 
 ---
 
+## Chrome Web Store — permission justifications
+
+Paste each into the matching field on the "Privacy practices" tab. Verified
+against the shipped source: no fetch/XMLHttpRequest/WebSocket, no eval or
+new Function, no importScripts, and the only external URL anywhere is the
+facebook.com link on the setup page.
+
+### Single purpose
+
+Hides sponsored posts, "Suggested for you" posts, and posts from Pages and
+Groups the user does not follow, from the Facebook news feed.
+
+### storage
+
+Stores the user's four on/off preferences (which categories to hide, and
+whether hidden posts collapse to a placeholder or are removed) using
+storage.local on the user's own device. Nothing else is stored, and nothing is
+synced or transmitted. Without it the extension could not remember the user's
+choices between page loads.
+
+### Host permission (*://*.facebook.com/*)
+
+The extension works by reading the rendered Facebook feed to identify which
+posts are sponsored or come from Pages the user does not follow, then hiding
+those elements. That requires running a content script on facebook.com, which
+is the only site requested. It reads page structure only, in the tab the user
+already has open; it does not read or transmit page content, account data, or
+messages.
+
+### Remote code
+
+No. All code is contained in the extension package. The extension does not
+fetch, evaluate, or inject any code from a remote source — there are no
+network requests of any kind, and no use of eval() or new Function().
+
+### Data usage disclosures
+
+Certify that the extension does NOT collect or transmit any of the listed
+categories. It makes no network requests. The only data written anywhere is
+the four preference booleans, held in local extension storage on the device.
+
+### Not requested, and why it matters if asked
+
+- "tabs" is not requested. The popup reads the active tab's URL through the
+  facebook.com host permission it already has, and tabs.reload() needs no
+  permission of its own.
+- "scripting" is not requested; the content script is declared statically in
+  the manifest.
+- No optional or broad host permissions such as <all_urls>.
+
+---
+
 ## Chrome Web Store — listing description (if refreshing it)
 
 Hides sponsored posts, ads, "Suggested for you" posts, and posts from Pages
