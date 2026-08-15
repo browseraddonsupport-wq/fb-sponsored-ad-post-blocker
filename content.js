@@ -387,7 +387,23 @@ function findMobilePostContainer(label, reason) {
     if (!parent || parent === document.body) return null;
 
     if (parent.children.length >= MOBILE_FEED_MIN_CHILDREN) {
-      if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
+      // The width rule rejects nested carousel items, which are real boxes that
+      // happen to be narrow. It cannot say anything about an element that has
+      // no box at all — and on mobile most of the feed has none, because
+      // Facebook virtualises it: off-screen posts are display:none with a
+      // filler reserving their scroll height. Measured on a live phone feed,
+      // 42 of 64 feed children were display:none at once.
+      //
+      // Those report offsetWidth 0, so the rule read "narrower than 60% of the
+      // feed" and dropped every one. Every off-screen ad was classified,
+      // rejected here, and forgotten; Facebook then revealed it unfiltered on
+      // scroll. That is why ads kept appearing on a phone while the badge
+      // insisted posts were being hidden.
+      //
+      // "Not currently rendered" and "too narrow to be a post" are different
+      // claims, and only the second one is evidence against this being a post.
+      const hasBox = node.offsetWidth > 0 || node.offsetHeight > 0;
+      if (hasBox && node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
 
       // The mobile equivalent of isAuthorLevelLabel. There are no headings to
       // key off, but the post's own author header is its first child subtree,

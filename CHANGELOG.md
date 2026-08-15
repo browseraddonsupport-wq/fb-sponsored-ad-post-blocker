@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.44
+
+### Fixed
+
+- **Ads kept appearing on a phone while the badge said posts were hidden.**
+  Both statements were true. Facebook virtualises the mobile feed: only a
+  window of posts is rendered, the rest sit at `display: none` with a `filler`
+  element reserving their scroll height. Measured on a live phone feed, 42 of
+  64 feed children were hidden at once, behind a filler 13,226px tall.
+
+  A virtualised-out post reports `offsetWidth` 0 — it has no box. The width
+  rule in `findMobilePostContainer` read that as "narrower than 60% of the
+  feed" and returned `null`, so every off-screen ad was classified, rejected,
+  and forgotten. Facebook then revealed it on scroll, unfiltered. The posts
+  that *were* on screen resolved normally, which is why the badge kept
+  climbing while ads stayed visible.
+
+  The rule exists to reject nested carousel items — real boxes that happen to
+  be narrow. It can say nothing about an element with no box at all, so it is
+  now applied only to elements that have one. "Not currently rendered" and
+  "too narrow to be a post" are different claims, and only the second is
+  evidence against something being a post.
+
+  Desktop is unaffected: nothing there is virtualised this way, so every
+  candidate has a box and the rule applies exactly as before.
+
+### Note on what this does not fix
+
+Long blank gaps between posts are a separate problem with the same root.
+Facebook sizes that filler assuming the posts it virtualised still occupy
+their heights; hiding one shrinks the content without shrinking the filler.
+This release does not address that.
+
+It is also not yet known whether a hide applied while a post is virtualised
+out survives Facebook revealing it — if Facebook overwrites the inline style,
+the ad returns, and the observer would not notice because it watches
+`childList` only, not attributes. That is the next thing to measure, and the
+reason this ships as one change rather than two.
+
 ## 1.1.43
 
 ### Added
