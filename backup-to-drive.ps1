@@ -52,10 +52,16 @@ try {
     # the folder; a bundle caught mid-write would upload as a corrupt backup that
     # still looks present, which is worse than an obviously missing one.
     $staged = Join-Path $env:TEMP "history.bundle"
-    git bundle create $staged --all 2>&1 | Out-Null
+
+    # git writes progress and even success messages to stderr, which under
+    # $ErrorActionPreference = "Stop" PowerShell escalates to a terminating
+    # error - a passing `bundle verify` would otherwise fail the script. Judge
+    # these by exit code, which is what actually carries the result.
+    $out = & { $ErrorActionPreference = "Continue"; git bundle create $staged --all 2>&1 }
+    if ($LASTEXITCODE -ne 0) { throw "bundle creation failed: $out" }
 
     # Prove it restores before it is allowed to count as a backup.
-    $verify = git bundle verify $staged 2>&1
+    $verify = & { $ErrorActionPreference = "Continue"; git bundle verify $staged 2>&1 }
     if ($LASTEXITCODE -ne 0) { throw "bundle failed verification: $verify" }
 
     Copy-Item $staged (Join-Path $Destination "history.bundle") -Force
