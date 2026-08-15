@@ -54,6 +54,15 @@
       </label>
     </section>
 
+    <!-- Android has no devtools, so this is the only way to see what the
+         extension is actually doing on a phone. Collapsed by default: it is
+         for diagnosing "installed but nothing is hidden", not daily use. -->
+    <details id="diagnostics" hidden>
+      <summary>Diagnostics</summary>
+      <pre id="diagnosticsBody">…</pre>
+      <button type="button" id="copyDiagnostics">Copy</button>
+    </details>
+
     <footer>Changes apply immediately, no reload needed.</footer>
 
     <script src="popup.js"></script>

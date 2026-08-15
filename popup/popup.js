@@ -19,6 +19,9 @@ const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
 const permissionPromptEl = document.getElementById("permissionPrompt");
 const grantAccessEl = document.getElementById("grantAccess");
+const diagnosticsEl = document.getElementById("diagnostics");
+const diagnosticsBodyEl = document.getElementById("diagnosticsBody");
+const copyDiagnosticsEl = document.getElementById("copyDiagnostics");
 
 const FACEBOOK_ORIGINS = { origins: ["*://*.facebook.com/*"] };
 
@@ -88,7 +91,55 @@ async function init() {
 
   const resp = await browser.runtime.sendMessage({ type: "GET_COUNT", tabId: tab.id }).catch(() => null);
   countEl.textContent = resp ? String(resp.count) : "0";
+
+  await showDiagnostics(tab.id);
 }
+
+// Asks the content script directly rather than the background: only the content
+// script knows what the page looked like. A missing reply means it isn't running
+// in that tab, which is itself the answer, so leave the section hidden.
+async function showDiagnostics(tabId) {
+  const d = await browser.tabs
+    .sendMessage(tabId, { type: "GET_DIAGNOSTICS" })
+    .catch(() => null);
+  if (!d) return;
+
+  const lines = [
+    `v${d.version}  ${d.layout}  viewport ${d.viewport}`,
+    `body: ${d.bodyClass || "(none)"}`,
+    `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}  waiting ${d.pending}`,
+    `climb: ${d.thresholds}`,
+  ];
+
+  if (!d.samples.length) {
+    lines.push("", "no posts hidden yet — nothing to sample");
+  } else {
+    // Each sample prints the hidden element first, then its ancestors. The
+    // number that matters is h: if the chosen node is short and the one above
+    // it is tall, the wrapper kept the space and the feed shows a gap.
+    d.samples.forEach((s, i) => {
+      lines.push("", `#${i + 1} ${s.reason}`);
+      s.chain.forEach((n, depth) => {
+        if (!n) return;
+        lines.push(
+          `  ${depth === 0 ? "->" : "  "} ${n.tag}.${n.cls || "-"}  k=${n.kids}  ${n.w}x${n.h}`
+        );
+      });
+    });
+  }
+
+  diagnosticsBodyEl.textContent = lines.join("\n");
+  diagnosticsEl.hidden = false;
+}
+
+// Selecting text in a popup on a phone is fiddly, and this output exists to be
+// relayed somewhere else.
+copyDiagnosticsEl.addEventListener("click", () => {
+  navigator.clipboard.writeText(diagnosticsBodyEl.textContent).then(
+    () => { copyDiagnosticsEl.textContent = "Copied"; },
+    () => { copyDiagnosticsEl.textContent = "Copy failed"; }
+  );
+});
 
 [hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, placeholderModeEl].forEach((el) =>
   el.addEventListener("change", save)

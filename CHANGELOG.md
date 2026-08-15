@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.43
+
+### Added
+
+- **A diagnostics panel in the popup.** Firefox for Android has no devtools UI:
+  the console is reachable only over USB remote debugging, so both the `DEBUG`
+  perf line and the 1.1.42 breakage warning are unreadable on the one platform
+  whose layout is hardest to reason about. Everything they would have said now
+  renders in the popup, collapsed by default.
+
+  It reports the layout gate taken, the viewport, the classified/anchored/
+  hidden/waiting counts, the climb thresholds in force, and — the part that
+  matters — the ancestor chain of the first few hidden elements with each
+  node's child count and pixel dimensions.
+
+  Those dimensions are the point. A correctly hidden post leaves no space
+  behind, because `display: none` removes it. A **gap** in the feed means the
+  node that owns the vertical space is still there and only its contents were
+  hidden — so the climb stopped one level short. Reading `h` down the chain
+  shows that immediately: a short chosen node under a tall parent is the
+  signature.
+
+  The sample is captured **before** the element is hidden, since `display: none`
+  zeroes `offsetWidth` and `offsetHeight`, and it stores plain numbers rather
+  than element references — the caution that applies to `logUnresolved` applies
+  harder to data meant to outlive the hide.
+
+  Not `DEBUG`-gated, deliberately. Gating it would put the diagnostics only in a
+  build that cannot be installed from AMO, which is where phone users get
+  theirs. The cost is a bounded array of eight small objects.
+
+### Note on what this is for
+
+This exists because of a real failure it could not previously explain: on a
+phone the badge read 12 while ads and unfollowed posts stayed visible, with
+long blank gaps between posts. Twelve successful hides landing on the wrong
+node — invisible to every diagnostic the extension had, because all of them
+spoke only to a console no phone can open.
+
 ## 1.1.42
 
 ### Added

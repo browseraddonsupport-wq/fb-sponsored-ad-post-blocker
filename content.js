@@ -529,6 +529,9 @@ function hidePost(container, reason, label) {
     container.insertAdjacentElement("beforebegin", placeholder);
   }
 
+  // Before the hide, while the element still has dimensions to report.
+  noteHiddenSample(container, reason);
+
   container.style.setProperty("display", "none", "important");
   container.dataset.fbsbHidden = reason;
   hiddenPosts.set(container, { reason, originalDisplay, placeholder, label });
@@ -779,6 +782,78 @@ function warnAppBannerAnchorLost(label) {
   );
   if (DEBUG) console.log("[fbsb] unanchored app banner label:", label);
 }
+
+// --- Diagnostics readable on a phone ---------------------------------------
+
+// Firefox for Android has no devtools UI, so console.warn and the DEBUG perf
+// line are both unreadable on the one platform whose layout is hardest to
+// reason about. Everything below exists so the popup can show, on the device,
+// what the console would have said.
+//
+// This is not DEBUG-gated. The cost is a bounded array of small plain objects
+// built during the first few hides, and gating it would mean the diagnostics
+// only exist in a build that cannot be installed from AMO — which is where
+// phone users get theirs.
+const DIAG_SAMPLE_LIMIT = 8;
+const diagSamples = [];
+
+// Plain data, never element references: the note on logUnresolved applies here
+// too, and these outlive the hide by design.
+function describeNode(el) {
+  if (!el || !el.tagName) return null;
+  const cls = (el.className || "").toString().trim().split(/\s+/).filter(Boolean);
+  return {
+    tag: el.tagName.toLowerCase(),
+    cls: cls.slice(0, 2).join(" ").slice(0, 32),
+    kids: el.children ? el.children.length : 0,
+    w: Math.round(el.offsetWidth || 0),
+    h: Math.round(el.offsetHeight || 0),
+  };
+}
+
+// MUST be called before the element is hidden. display:none zeroes offsetWidth
+// and offsetHeight, and those two numbers are the entire point: they are what
+// distinguishes "we hid the post" from "we hid the post's insides and left its
+// wrapper holding the space", which on a feed looks like a gap you scroll past.
+const DIAG_CHAIN_DEPTH = 4;
+
+function noteHiddenSample(container, reason) {
+  if (diagSamples.length >= DIAG_SAMPLE_LIMIT) return;
+  const chain = [];
+  let n = container;
+  for (let i = 0; i < DIAG_CHAIN_DEPTH && n && n !== document.body; i++) {
+    chain.push(describeNode(n));
+    n = n.parentElement;
+  }
+  diagSamples.push({ reason, chain });
+}
+
+function buildDiagnostics() {
+  const mobile = isMobileLayout();
+  return {
+    version: browser.runtime.getManifest().version,
+    layout: mobile ? "mobile" : "desktop",
+    bodyClass: mobile ? MOBILE_BODY_CLASS : (document.body.className || "").toString().slice(0, 60),
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    classified: labelsClassified,
+    anchored: labelsAnchored,
+    hidden: hiddenPosts.size,
+    pending: pendingLabels.size,
+    thresholds: `kids>=${MOBILE_FEED_MIN_CHILDREN} width>=${MOBILE_MIN_WIDTH_RATIO}`,
+    samples: diagSamples,
+  };
+}
+
+// The popup asks the content script directly (tabs.sendMessage), which needs no
+// "tabs" permission — the facebook.com host permission already covers it. The
+// sendResponse form is used for the same cross-browser reason as background.js.
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.type === "GET_DIAGNOSTICS") {
+    sendResponse(buildDiagnostics());
+    return true;
+  }
+  return false;
+});
 
 // Diagnostics must not become their own performance problem. Repeats of the
 // same unresolved shape teach nothing after the first few, and the volume is
