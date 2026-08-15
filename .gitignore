@@ -7,3 +7,7 @@ dist/
 
 # Machine-local tool permissions, not project configuration.
 .claude/settings.local.json
+
+# Google Drive sync scaffolding. Not project files.
+.Trash-1000/
+.tmp.driveupload/
