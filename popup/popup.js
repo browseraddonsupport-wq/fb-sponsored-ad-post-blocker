@@ -6,12 +6,14 @@ const DEFAULT_SETTINGS = {
   hideSponsored: true,
   hideSuggested: true,
   hideUnfollowed: true,
+  hideAppBanner: true,
   placeholderMode: false,
 };
 
 const hideSponsoredEl = document.getElementById("hideSponsored");
 const hideSuggestedEl = document.getElementById("hideSuggested");
 const hideUnfollowedEl = document.getElementById("hideUnfollowed");
+const hideAppBannerEl = document.getElementById("hideAppBanner");
 const placeholderModeEl = document.getElementById("placeholderMode");
 const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
@@ -25,6 +27,7 @@ function save() {
     hideSponsored: hideSponsoredEl.checked,
     hideSuggested: hideSuggestedEl.checked,
     hideUnfollowed: hideUnfollowedEl.checked,
+    hideAppBanner: hideAppBannerEl.checked,
     placeholderMode: placeholderModeEl.checked,
   });
 }
@@ -71,6 +74,7 @@ async function init() {
   hideSponsoredEl.checked = settings.hideSponsored;
   hideSuggestedEl.checked = settings.hideSuggested;
   hideUnfollowedEl.checked = settings.hideUnfollowed;
+  hideAppBannerEl.checked = settings.hideAppBanner;
   placeholderModeEl.checked = settings.placeholderMode;
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -86,7 +90,7 @@ async function init() {
   countEl.textContent = resp ? String(resp.count) : "0";
 }
 
-[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, placeholderModeEl].forEach((el) =>
+[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, placeholderModeEl].forEach((el) =>
   el.addEventListener("change", save)
 );
 

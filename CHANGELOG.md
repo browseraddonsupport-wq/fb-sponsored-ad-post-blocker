@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.40
+
+### Added
+
+- **The mobile "Open app" bar can be hidden.** Facebook pins a fixed bar to
+  the bottom of the mobile web layout pushing you into the native app. It is
+  now hidden by default, with its own checkbox — someone who wants ads gone
+  may still want that button, so it is not folded into the existing three.
+
+  It reuses the normal pipeline rather than getting a path of its own, which
+  is what makes the setting toggle, the restore-on-disable, and the
+  recycled-node handling work without new code. It differs from a hidden post
+  in exactly two ways, both in `isPostReason()`: it never gets a placeholder
+  (a "Post hidden — Show" bar would be more intrusive than the thing it
+  replaced) and it never counts toward the badge, which counts posts.
+
+  Detection is gated on the layout as well as the setting. Without that, every
+  "Open app" string on a desktop page would classify, fail to resolve, and sit
+  in the retry queue for the full 8s window — the shape of the 1.1.35
+  regression, if not the scale.
+
+  The anchor is `.fixed-container.bottom`, the only fixed-position element in
+  the bottom half of the mobile viewport. Those two class names are
+  descriptive rather than hashed, so they stand a better chance than the
+  surrounding `m`/`f2` soup — but this is still a class-name dependency, and
+  it will fail silently if Facebook renames them.
+
 ## 1.1.39
 
 ### Added

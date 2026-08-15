@@ -215,6 +215,10 @@ Click the toolbar icon to toggle:
 - **Hide posts from Pages/Groups you don't follow** — on by default. This is
   broader than the other two: it hides organic, non-ad posts, so it's the
   first one to turn off if the feed feels too empty.
+- **Hide the mobile "Open app" bar** — on by default. The bar Facebook pins
+  to the bottom of the mobile web layout urging you into the native app. It
+  is the one setting with no effect on desktop, where the bar doesn't exist;
+  it also doesn't count toward the badge, which counts posts.
 - **Show a "Show" placeholder instead of removing completely** — off by
   default, so hidden posts disappear entirely. Turn it on to leave a small
   bar in place of each hidden post: the feed doesn't jump around, and you can

@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS = {
   hideSponsored: true,
   hideSuggested: true,
   hideUnfollowed: true,
+  hideAppBanner: true,
   placeholderMode: false,
 };
 
@@ -43,6 +44,13 @@ const SUGGESTED_TEXTS = new Set(["Suggested for you", "Suggested for You"]);
 // signal that this is a Page or Group you don't follow/haven't joined —
 // distinct from "Following"/"Joined", which only show once you already do.
 const UNFOLLOWED_TEXTS = new Set(["Follow", "Join"]);
+// The "Open app" bar pinned to the bottom of the mobile web layout. Not a
+// feed post, so it is hidden by its own container rather than by climbing:
+// it is the only fixed-position element in the bottom half of the viewport,
+// and unlike the m/f2 class soup around it, these two class names are
+// descriptive and have some chance of surviving a redesign.
+const APP_BANNER_TEXTS = new Set(["Open app"]);
+const APP_BANNER_SELECTOR = ".fixed-container.bottom";
 const SPONSORED_ARIA_RE = /sponsored content$/i;
 
 // Facebook renders label text as one <span> per character and scrambles it
@@ -151,6 +159,12 @@ function reasonForText(text) {
   if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
   if (settings.hideSuggested && SUGGESTED_TEXTS.has(text)) return "suggested";
   if (settings.hideUnfollowed && UNFOLLOWED_TEXTS.has(text)) return "unfollowed";
+  // Gated on the layout as well as the setting: this banner only exists on
+  // mobile, and without the gate every "Open app" string on a desktop page
+  // would classify, fail to resolve, and sit in the retry queue for 8s.
+  if (settings.hideAppBanner && APP_BANNER_TEXTS.has(text) && isMobileLayout()) {
+    return "appbanner";
+  }
   return null;
 }
 
@@ -359,6 +373,10 @@ const MOBILE_MAX_CLIMB = 12;
 const MOBILE_MIN_WIDTH_RATIO = 0.6;
 
 function findMobilePostContainer(label, reason) {
+  // The app banner is a fixed bar, not a feed child — climbing by child count
+  // would walk straight past it to the page wrapper.
+  if (reason === "appbanner") return label.closest(APP_BANNER_SELECTOR);
+
   let node = label;
   for (let i = 0; i < MOBILE_MAX_CLIMB; i++) {
     const parent = node.parentElement;
@@ -472,11 +490,19 @@ function reportCount(delta) {
   }, COUNT_FLUSH_MS);
 }
 
+// The app banner is chrome, not content: a "Post hidden — Show" bar in its
+// place would be more intrusive than the thing it replaced, and it isn't a
+// post, so counting it would make the badge overstate what was filtered.
+// Both of those are the only ways it differs from a hidden post.
+function isPostReason(reason) {
+  return reason !== "appbanner";
+}
+
 function hidePost(container, reason, label) {
   const originalDisplay = container.style.display || "";
   let placeholder = null;
 
-  if (settings.placeholderMode) {
+  if (settings.placeholderMode && isPostReason(reason)) {
     placeholder = document.createElement("div");
     placeholder.className = "fbsb-placeholder";
 
@@ -502,7 +528,7 @@ function hidePost(container, reason, label) {
   container.style.setProperty("display", "none", "important");
   container.dataset.fbsbHidden = reason;
   hiddenPosts.set(container, { reason, originalDisplay, placeholder, label });
-  reportCount(1);
+  if (isPostReason(reason)) reportCount(1);
 }
 
 function restorePost(container) {
@@ -512,7 +538,7 @@ function restorePost(container) {
   if (info.placeholder) info.placeholder.remove();
   delete container.dataset.fbsbHidden;
   hiddenPosts.delete(container);
-  reportCount(-1);
+  if (isPostReason(info.reason)) reportCount(-1);
 }
 
 function restoreByReason(reason) {
@@ -977,6 +1003,11 @@ browser.storage.onChanged.addListener((changes, area) => {
     if (!settings.hideUnfollowed) restoreByReason("unfollowed");
     else shouldRescan = true;
   }
+  if (changes.hideAppBanner) {
+    settings.hideAppBanner = changes.hideAppBanner.newValue;
+    if (!settings.hideAppBanner) restoreByReason("appbanner");
+    else shouldRescan = true;
+  }
   if (changes.placeholderMode) {
     settings.placeholderMode = changes.placeholderMode.newValue;
   }
@@ -1001,6 +1032,7 @@ browser.storage.onChanged.addListener((changes, area) => {
   if (!settings.hideSponsored) restoreByReason("sponsored");
   if (!settings.hideSuggested) restoreByReason("suggested");
   if (!settings.hideUnfollowed) restoreByReason("unfollowed");
+  if (!settings.hideAppBanner) restoreByReason("appbanner");
 
   // Placeholder mode changes how a post is hidden, not whether — so anything
   // hidden under the default presentation has to be undone and redone to match.
