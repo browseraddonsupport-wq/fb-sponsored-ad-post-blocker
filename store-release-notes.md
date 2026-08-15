@@ -1,61 +1,68 @@
-# Store release notes — 1.1.33
+# Store release notes — 1.1.39
 
-Covers everything since 1.1.21, the last published version. Written for the
-listing pages, not for developers; the technical record is in CHANGELOG.md.
+Covers 1.1.39 only. 1.1.38 is already published on AMO, so everything before
+this is live. Written for the listing pages, not for developers; the technical
+record is in CHANGELOG.md.
+
+---
+
+## Who this release is actually for
+
+Worth deciding before submitting anywhere: **1.1.39 changes nothing on
+desktop.** It makes the extension work on Facebook's mobile web layout, which
+is a separate app served on the strength of the browser's user agent. Desktop
+behaviour is explicitly unchanged and was re-verified against a live feed.
+
+That means:
+
+- **Firefox (AMO) — worth submitting.** Firefox for Android installs
+  extensions from AMO, so those users go from "hides nothing at all" to
+  working. Desktop Firefox users get nothing new.
+- **Chrome Web Store — arguably not worth submitting.** Chrome on Android
+  does not support extensions, and desktop Chrome is served the desktop
+  layout, so no Chrome user can reach the code path this release fixes.
+  Submitting means a review cycle for a change none of them will observe.
+  Notes are drafted below anyway, in case you would rather keep the two
+  stores on the same version.
 
 ---
 
 ## Firefox (AMO) — "Release Notes" field
 
-NOTE: the "Sponsored"-as-a-graphic change has NOT been observed in Firefox —
-checked in Waterfox 140 against a live feed, which had no sprite labels at
-all. That fix matters for Chromium browsers, where it was breaking detection
-outright. It is included here so Firefox keeps working if the change reaches
-it later, but it must not be the headline: Firefox ad detection was fixed in
-1.1.21, which is already published, so leading with "sponsored posts are
-hidden again" would describe a bug Firefox users never had.
+Now works on Facebook's mobile site.
 
-Mostly settings and speed in this release.
+- If you use this extension in Firefox for Android, it should now hide
+  sponsored posts, ads, and posts from Pages you don't follow on your phone,
+  the same as it does on a computer. Previously it installed and looked fine
+  there but never hid anything.
+- Nothing changes on desktop. If you only use Firefox on a computer, this
+  update makes no difference to what you see.
 
-- "Suggested for you" and "Posts from Pages/Groups you don't follow" are now
-  ON by default, alongside "Sponsored". All three remain optional — if your
-  feed looks too sparse, "Pages/Groups you don't follow" is the broadest and
-  the first one to turn off.
-- Hidden posts are now removed completely by default. If you would rather see
-  a small "Post hidden — Show" bar in their place, turn on the placeholder
-  option in the toolbar popup.
-- Posts are hidden faster, especially in the first moments after a page load.
-- Added handling for a new way Facebook labels sponsored posts — drawing the
-  label as a graphic rather than text. This is already live in Chrome and
-  other Chromium browsers; including it now means detection keeps working if
-  it reaches Firefox.
-- Now works in Chrome, Edge, Brave and Opera as well as Firefox.
+Facebook serves phones a completely different version of the site — different
+enough that the extension had no way to tell where one post ended and the next
+began. That is what this release adds.
 
-Known limitation: ads in the right-hand column are detected but not yet
-hidden. English-language labels only.
-
-If you have turned one of the three options off, posts of that type may flash
-briefly on screen during page load before being hidden again.
+Known limitation: ads in the right-hand column on desktop are detected but not
+yet hidden. English-language labels only.
 
 ---
 
 ## Chrome Web Store — "What's new" (short field)
 
-Sponsored posts are hidden again. Facebook now draws the "Sponsored" label as
-a graphic rather than text, so the old detection had nothing to match — this
-version follows the label's underlying reference instead. Posts from people
-and Pages you follow are unaffected. Also: all three hide options are now on
-by default, hidden posts are removed completely rather than leaving a
-placeholder, and posts are hidden faster on page load.
+Adds support for Facebook's mobile web layout. This has no effect in Chrome on
+a computer, where Facebook serves the desktop layout and behaviour is
+unchanged — it is included so both browsers ship from the same source. No
+changes to what is hidden, to your settings, or to permissions.
 
 ---
 
 ## Chrome Web Store — permission justifications
 
-Paste each into the matching field on the "Privacy practices" tab. Verified
-against the shipped source: no fetch/XMLHttpRequest/WebSocket, no eval or
-new Function, no importScripts, and the only external URL anywhere is the
-facebook.com link on the setup page.
+Unchanged from 1.1.33 and re-verified against the 1.1.39 source: no
+fetch/XMLHttpRequest/WebSocket/sendBeacon, no eval or new Function, no
+importScripts, no remote scripts or stylesheets, and the only external URL
+anywhere is the facebook.com link on the setup page. Permissions are still
+`storage` plus the single host permission.
 
 ### Single purpose
 

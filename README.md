@@ -247,6 +247,14 @@ Changes apply live, no page reload required.
 - Unfollowed detection assumes the post's own author header is the **first**
   heading in the post. If Facebook ships a layout where it isn't, those posts
   stop being detected — failing quiet rather than hiding wrongly.
+- **Mobile support is keyed to one class name.** Facebook's mobile web
+  layout ("weblite") is a separate app with no ARIA landmarks at all, so it
+  needs its own container resolution, its own depth threshold, and an extra
+  Unicode class stripped from labels (its icon font lives in the Private Use
+  Area, inside the same span as the label text). All of that is gated on
+  `<body class="html-renderer">`. If Facebook renames that class, mobile
+  quietly stops hiding anything while desktop carries on working — the two
+  paths share detection but not resolution.
 - Some ad units (particularly the video/link-preview "Ad"-badge template)
   can briefly flash visible before the retry loop catches and hides them,
   rather than being hidden instantly.

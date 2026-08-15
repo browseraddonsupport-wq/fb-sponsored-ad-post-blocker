@@ -58,7 +58,19 @@ const SPONSORED_ARIA_RE = /sponsored content$/i;
 //     ones, so a length threshold filters them out; sorting each level's
 //     children by computed `order` before concatenating restores the real
 //     reading order.
-const INVISIBLE_CHARS_RE = /[\p{Cf}\p{Mn}]/gu;
+// The third class of junk is only visible on mobile: weblite draws its icons
+// from a font mapped into the Private Use Area, and packs them into the same
+// span as the label text — an ad's label is literally "Ad\u{F078B}\u{F17E0}",
+// where the two trailing glyphs are the audience and chevron icons. Those are
+// category Co, not Cf or Mn, so stripping only the first two left the text as
+// "Ad<glyph><glyph>", which matches nothing. This is why mobile hid unfollowed
+// posts but never ads: "Follow" happens to sit in a span of its own with no
+// icons, while every ad label shares one with them.
+//
+// Dropping Co cannot create a false positive on its own. The neighbouring
+// organic-post span is "1h\u{F212D}\u{F3196}" (a timestamp plus the same kind
+// of icons), which cleans to "1h" and matches no target.
+const INVISIBLE_CHARS_RE = /[\p{Cf}\p{Mn}\p{Co}]/gu;
 const HONEYPOT_LEAF_CLASS_COUNT = 10;
 // Every genuine character-split label found this session is flat: one
 // wrapper span, one level of character-spans below it (occasionally two).
@@ -314,7 +326,66 @@ function isAuthorLevelLabel(label, container) {
   return heading === container.querySelector("h1, h2, h3, h4, h5, h6");
 }
 
+// Facebook's mobile web renderer ("weblite" — it tags <body> with
+// html-renderer) is a different app, not a narrow desktop. It exposes no ARIA
+// landmarks whatsoever: no role="article", no aria-posinset, no data-pagelet,
+// no role="complementary", and the author header is a plain <div> rather than
+// a heading. Every strategy in findPostContainer keys off one of those, so on
+// mobile all of them return null and nothing is ever hidden — detection works
+// fine there, resolution is what fails.
+//
+// Keying off the body class rather than "no landmarks found" is deliberate:
+// the latter needs a document-wide query on every unresolved label, and a
+// desktop page that hasn't painted its feed yet would answer it wrongly. The
+// tradeoff is that if Facebook renames this class, mobile support stops
+// silently — the same failure mode as everything else in this file.
+const MOBILE_BODY_CLASS = "html-renderer";
+
+function isMobileLayout() {
+  return document.body.classList.contains(MOBILE_BODY_CLASS);
+}
+
+// What that layout does have is a flat feed: one container whose direct
+// children are the posts. Observed on a live feed, the container held 71
+// children and each post sat 7 levels above its "Follow" button, with every
+// intermediate wrapper holding 1-4 children. So the post is the last ancestor
+// before the first ancestor that has many children.
+const MOBILE_FEED_MIN_CHILDREN = 10;
+const MOBILE_MAX_CLIMB = 12;
+// Feed posts span the feed's full width (measured: 1339-1345 of 1345). A
+// carousel nested inside a post could also clear the child-count bar, and
+// climbing would stop at one of its items; requiring most of the parent's
+// width rejects that without needing to know what the carousel is.
+const MOBILE_MIN_WIDTH_RATIO = 0.6;
+
+function findMobilePostContainer(label, reason) {
+  let node = label;
+  for (let i = 0; i < MOBILE_MAX_CLIMB; i++) {
+    const parent = node.parentElement;
+    if (!parent || parent === document.body) return null;
+
+    if (parent.children.length >= MOBILE_FEED_MIN_CHILDREN) {
+      if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
+
+      // The mobile equivalent of isAuthorLevelLabel. There are no headings to
+      // key off, but the post's own author header is its first child subtree,
+      // and a quoted/embedded post's header comes later — so requiring the
+      // label to sit inside the first child errs the same way, toward leaving
+      // posts visible.
+      if (reason === "unfollowed") {
+        const first = node.firstElementChild;
+        if (!first || !first.contains(label)) return null;
+      }
+      return node;
+    }
+    node = parent;
+  }
+  return null;
+}
+
 function findPostContainer(label, reason) {
+  if (isMobileLayout()) return findMobilePostContainer(label, reason);
+
   const feedPost = label.closest('[role="article"], [data-pagelet^="FeedUnit"]');
   if (feedPost) return feedPost;
 
@@ -482,10 +553,22 @@ const pendingLabels = new Map(); // label -> first-seen timestamp
 // decoy, which otherwise adds up fast since new ones keep appearing while
 // scrolling.
 const SHALLOW_DEPTH_LIMIT = 10;
+// Mobile needs its own number, because the threshold is only meaningful
+// relative to how deep the page nests. Weblite's whole document is about 11
+// levels: a feed ad's "Ad" label measures exactly 10 steps from <body>, so the
+// desktop limit classified every real ad as a decoy and discarded it before
+// resolution was attempted — detection and container resolution both worked,
+// and this threw the label away in between. Unfollowed posts escaped only
+// because their "Follow" button carries two extra wrappers, putting it at 11.
+//
+// 4 keeps the original intent (anything parked directly under <body> is not a
+// post) while leaving room for a tree this shallow.
+const MOBILE_SHALLOW_DEPTH_LIMIT = 4;
 
 function isImplausiblyShallow(el) {
+  const limit = isMobileLayout() ? MOBILE_SHALLOW_DEPTH_LIMIT : SHALLOW_DEPTH_LIMIT;
   let node = el;
-  for (let depth = 0; depth < SHALLOW_DEPTH_LIMIT; depth++) {
+  for (let depth = 0; depth < limit; depth++) {
     node = node && node.parentElement;
     if (!node) return false;
     if (node === document.body) return true;

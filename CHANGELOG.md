@@ -1,25 +1,74 @@
 # Changelog
 
+## 1.1.39
+
+### Added
+
+- **Works on Facebook's mobile web layout.** Installed on a phone the
+  extension hid nothing at all, while looking perfectly healthy: permissions
+  granted, content script injected, no errors. Three separate faults were
+  stacked behind that, each invisible until the one before it was fixed.
+
+  **Container resolution had nothing to anchor to.** Mobile web ("weblite" —
+  it tags `<body>` with `html-renderer`) is a different app, not a narrow
+  desktop. It exposes no ARIA landmarks whatsoever: no `role="article"`, no
+  `aria-posinset`, no `data-pagelet`, no `role="complementary"`, and the
+  author header is a plain `<div>` rather than a heading. Every strategy in
+  `findPostContainer` keys off one of those, so all of them returned `null`.
+  `findMobilePostContainer` climbs instead: that layout's feed is a single
+  container whose direct children are the posts, so the post is the last
+  ancestor before the first ancestor with many children. A width check
+  rejects nested carousels, which can also clear the child-count bar. For
+  `unfollowed`, the label must sit inside the container's first child —
+  `isAuthorLevelLabel`'s "don't hide a post over a quoted author's Follow
+  button" rule, expressed without headings to key off.
+
+  **Ad labels were unmatchable.** Weblite draws its icons from a font mapped
+  into the Private Use Area and packs them into the same span as the text, so
+  an ad's label is literally `"Ad\u{F078B}\u{F17E0}"`. Those glyphs are
+  category `Co`, and `INVISIBLE_CHARS_RE` stripped only `Cf` and `Mn`, so the
+  cleaned text never equalled `"Ad"`. This is precisely why mobile hid
+  unfollowed posts but never ads: `"Follow"` happens to sit in a span of its
+  own, with no icons alongside it.
+
+  **The decoy filter threw the labels away before either fix could matter.**
+  `isImplausiblyShallow` treats anything within 10 levels of `<body>` as a
+  portal/decoy span, which holds on desktop where real posts sit 15+ deep.
+  Weblite's entire document is about 11 levels and an ad label measures
+  exactly 10, so every real ad was discarded before resolution was attempted.
+  The limit is now layout-aware (`MOBILE_SHALLOW_DEPTH_LIMIT`).
+
+  Desktop behaviour is unchanged. The `Co` strip does apply to both, but it
+  can only shorten text: the neighbouring organic-post span is a timestamp
+  plus the same icons, `"1h\u{F212D}\u{F3196}"`, which cleans to `"1h"` and
+  matches no target. Confirmed against a live desktop feed as well as mobile.
+
+### Note for anyone building on this
+
+Two of these three faults were undetectable from the outside, because the
+symptom is identical in every case: nothing is hidden. What separated them
+was `data-fbsb-seen`, the `DEBUG`-only marker `processLabel` sets on every
+element it examines. "We never looked at it", "we looked and didn't match",
+and "we matched and couldn't anchor it" need completely different fixes, and
+that attribute is the only thing that tells them apart. The perf line helps
+too, for the same reason: an entry missing from `matched:` means the label
+was rejected before counting, not that detection failed.
+
 ## 1.1.38
 
 ### Changed
 
-- **The `DEBUG` perf line now reports MutationObserver cost separately.** It
-  previously timed `scanRoot` only, so everything the observer callback does —
-  including `cacheLabelTargets` walking every subtree Facebook inserts during
-  its initial render — was invisible. That blind spot had already hidden one
-  regression: the retry-loop freeze fixed in 1.1.35 reported a healthy
-  `1.0ms across 274 scans` while the page was unusable.
+- **The `DEBUG` perf line now reports MutationObserver cost separately.**
+  1.1.35 froze the feed while that line read a healthy `1.0ms across 274
+  scans`, because the figure times `scanRoot` and nothing else. The observer
+  callback runs synchronously on every mutation Facebook makes, including the
+  whole of its initial render, and `cacheLabelTargets` walks each added
+  subtree — none of it visible to the scan timer.
 
-  Measured on a real feed, the observer costs 2–16ms per 2s window and falls
-  after load rather than spiking during it, which ruled it out as the cause of
-  a slow first paint that had been attributed to it.
-- README leads with an **Install** section pointing at the store listings.
-  Both sideload sections are now labelled `Development:` — a temporary add-on
-  disappears on restart and never updates, so it is the wrong way to install
-  this for normal use.
-
-No behaviour change in release builds: the instrumentation is `DEBUG`-only.
+  The line now carries `observer: <ms> across <n> calls` alongside the scan
+  figures, so the two costs can be told apart. This does not make anything
+  faster; it makes a regression of that shape visible in the log instead of
+  only in a whole-page profile.
 
 ## 1.1.37
 
