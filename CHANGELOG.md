@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.42
+
+### Added
+
+- **Structural breakage now announces itself.** Every mobile code path is gated
+  on `<body class="html-renderer">` and the app banner on
+  `.fixed-container.bottom`. Both names are Facebook's to change, and when
+  either goes the symptom is silence: labels still classify, nothing anchors,
+  and the extension looks completely healthy while hiding nothing. 1.1.39 spent
+  three stacked fixes inside exactly that blind spot.
+
+  The check is not "does `html-renderer` still match" — that only catches the
+  rename already imagined. It counts classified labels against anchored ones,
+  and warns once per page if 20 labels match while none resolve. That signature
+  means detection works and container resolution does not, which is what a
+  structural rename looks like on either layout, desktop landmarks included.
+  The warning reports which layout gate was taken so the two cases can be told
+  apart immediately.
+
+  The app banner gets its own check, since it is the one target anchored by
+  selector rather than by climbing: reaching resolution at all means the text
+  matched and the layout gate passed, so failing to find the bar is
+  unambiguous and needs no threshold.
+
+  This one is deliberately **not** `DEBUG`-gated. A diagnostic that only speaks
+  in a build the user isn't running does not fix a silent failure. It is one
+  `console.warn`, at most once per page, and it cannot fire on a page where
+  anything at all was successfully hidden.
+
+### Note on what this does not do
+
+It warns; it does not adapt. A structural fallback was considered and rejected:
+guessing the layout from "no ARIA landmarks, shallow document" would let a
+wrong guess disable every mobile path silently — reintroducing the failure mode
+this is meant to remove, one level further down.
+
 ## 1.1.41
 
 ### Fixed

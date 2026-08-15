@@ -375,7 +375,11 @@ const MOBILE_MIN_WIDTH_RATIO = 0.6;
 function findMobilePostContainer(label, reason) {
   // The app banner is a fixed bar, not a feed child — climbing by child count
   // would walk straight past it to the page wrapper.
-  if (reason === "appbanner") return label.closest(APP_BANNER_SELECTOR);
+  if (reason === "appbanner") {
+    const bar = label.closest(APP_BANNER_SELECTOR);
+    if (!bar) warnAppBannerAnchorLost(label);
+    return bar;
+  }
 
   let node = label;
   for (let i = 0; i < MOBILE_MAX_CLIMB; i++) {
@@ -675,10 +679,12 @@ function processLabel(label) {
   }
 
   if (DEBUG) stats.matched[reason] = (stats.matched[reason] || 0) + 1;
+  noteLabelClassified();
 
   const resolved = tryHideFromLabel(label, reason);
   if (resolved) {
     if (DEBUG) stats.hidden += 1;
+    noteLabelAnchored();
     return;
   }
 
@@ -704,6 +710,74 @@ function processLabel(label) {
     pendingLabels.set(label, Date.now());
     ensureRetryLoopRunning();
   }
+}
+
+// --- Breakage detection ----------------------------------------------------
+
+// Everything on mobile is gated on one class name (MOBILE_BODY_CLASS) and the
+// app banner on one selector (APP_BANNER_SELECTOR). Both belong to Facebook,
+// and when either is renamed the symptom is silence: labels still classify,
+// nothing anchors, and the extension looks entirely healthy while hiding
+// nothing. That is the failure mode 1.1.39 spent three stacked fixes chasing,
+// and the thing that made it expensive was that no signal distinguished it
+// from "there were no ads in this feed".
+//
+// The check is deliberately not "does html-renderer still match" — that only
+// catches the rename we already thought of. "We classified labels and anchored
+// none of them" catches any structural change, on either layout, including the
+// desktop landmarks. It costs two integer increments per classified label.
+//
+// Unlike the rest of the diagnostics here this is not DEBUG-gated. A silent
+// failure that only becomes audible in a build the user isn't running is still
+// a silent failure — and the whole point is to learn about a rename from the
+// field rather than from a bug report saying "it stopped working".
+const BREAKAGE_MIN_LABELS = 20;
+let labelsClassified = 0;
+let labelsAnchored = 0;
+let breakageWarned = false;
+
+function noteLabelAnchored() {
+  labelsAnchored += 1;
+}
+
+// Called once per classified label. Anchoring even one label means resolution
+// works and the question is settled for this page — a feed where some posts
+// resolve and others don't is ordinary, and not what this is looking for.
+function noteLabelClassified() {
+  labelsClassified += 1;
+  if (breakageWarned || labelsAnchored > 0) return;
+  if (labelsClassified < BREAKAGE_MIN_LABELS) return;
+  breakageWarned = true;
+
+  const mobile = isMobileLayout();
+  console.warn(
+    `[fbsb] ${labelsClassified} labels matched, none could be anchored to a post. ` +
+    `Detection works; container resolution does not — which is what happens when ` +
+    `Facebook renames the structure this keys off.\n` +
+    `  layout gate: ${mobile ? "mobile" : "desktop"} ` +
+    `(<body class> ${mobile ? "has" : "lacks"} "${MOBILE_BODY_CLASS}")\n` +
+    `  build: ${browser.runtime.getManifest().version}\n` +
+    `  If this is a phone, the mobile class was probably renamed. If it is a ` +
+    `desktop feed, the ARIA landmarks were.`
+  );
+}
+
+// The banner is the one target anchored by selector rather than by climbing,
+// so it fails on its own schedule and says so on its own. Reaching here means
+// the text matched and the layout gate passed, so a miss is unambiguous: the
+// selector is stale. No threshold needed — there is only ever one of these.
+let appBannerWarned = false;
+
+function warnAppBannerAnchorLost(label) {
+  if (appBannerWarned) return;
+  appBannerWarned = true;
+  console.warn(
+    `[fbsb] found an "Open app" bar but "${APP_BANNER_SELECTOR}" no longer matches ` +
+    `any ancestor of it — the bar will not be hidden. Those class names have ` +
+    `presumably been renamed.\n` +
+    `  build: ${browser.runtime.getManifest().version}`
+  );
+  if (DEBUG) console.log("[fbsb] unanchored app banner label:", label);
 }
 
 // Diagnostics must not become their own performance problem. Repeats of the
@@ -752,6 +826,9 @@ function retryPendingLabels() {
     }
     if (tryHideFromLabel(label, reason)) {
       if (DEBUG) console.log("[fbsb] resolved on retry", label);
+      // Counts as anchoring: this path bypasses processLabel, and without it a
+      // feed whose ads all resolve a beat late would look like total breakage.
+      noteLabelAnchored();
       pendingLabels.delete(label);
     }
   }

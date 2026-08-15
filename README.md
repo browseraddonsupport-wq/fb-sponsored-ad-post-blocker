@@ -257,8 +257,12 @@ Changes apply live, no page reload required.
   Unicode class stripped from labels (its icon font lives in the Private Use
   Area, inside the same span as the label text). All of that is gated on
   `<body class="html-renderer">`. If Facebook renames that class, mobile
-  quietly stops hiding anything while desktop carries on working — the two
-  paths share detection but not resolution.
+  stops hiding anything while desktop carries on working — the two paths share
+  detection but not resolution. Since 1.1.42 this is no longer quiet: matching
+  20 labels while anchoring none logs a warning naming the layout gate taken,
+  and a stale `.fixed-container.bottom` reports itself separately. The
+  extension still doesn't adapt to a rename — it just stops pretending it's
+  fine.
 - Some ad units (particularly the video/link-preview "Ad"-badge template)
   can briefly flash visible before the retry loop catches and hides them,
   rather than being hidden instantly.
