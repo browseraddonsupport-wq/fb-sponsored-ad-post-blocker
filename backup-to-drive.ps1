@@ -20,7 +20,8 @@
 # Restoring, from anywhere:  git clone history.bundle <folder>
 
 param(
-    [string]$Destination = "I:\My Drive\Extensions\F.B. Sponsored Ad Post Blocker",
+    # Left empty to be discovered. Pass a path to override.
+    [string]$Destination,
     # Snapshots a dirty tree instead of refusing. The bundle still only contains
     # committed history, so uncommitted edits are NOT backed up either way -
     # the refusal exists to stop that going unnoticed.
@@ -30,8 +31,25 @@ param(
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
+# Google Drive's mount letter is not stable. It was I: for this project's first
+# snapshots and came back as H: after a restart of the Drive client, which made
+# a hardcoded path fail with "destination not found" - a backup that stops
+# running because a drive letter moved is worse than useless, because nothing
+# announces it. Find the folder instead of assuming where it lives.
+$driveRelative = "My Drive\Extensions\F.B. Sponsored Ad Post Blocker"
+
+if (-not $Destination) {
+    foreach ($letter in (Get-PSDrive -PSProvider FileSystem).Name) {
+        $candidate = Join-Path "${letter}:\" $driveRelative
+        if (Test-Path $candidate) { $Destination = $candidate; break }
+    }
+}
+
+if (-not $Destination) {
+    throw "could not find '$driveRelative' on any drive - is Google Drive running?"
+}
 if (-not (Test-Path $Destination)) {
-    throw "destination not found: $Destination (is Google Drive running?)"
+    throw "destination not found: $Destination"
 }
 
 Push-Location $root
