@@ -70,7 +70,12 @@ try {
     $zips = Get-ChildItem $root -Filter "fb-sponsored-ad-post-blocker*.zip" -File
     foreach ($z in $zips) { Copy-Item $z.FullName (Join-Path $Destination $z.Name) -Force }
 
-    $commits = git rev-list --all --count
+    # Count the branch, not --all. This repo carries refs/original/* left behind
+    # by an old filter-branch, and --all counts those orphaned pre-rewrite
+    # commits too - reporting 23 for a 17-commit history. The bundle still
+    # captures everything either way; only the number was wrong, which is worth
+    # fixing in a tool whose whole job is telling you what it saved.
+    $commits = git rev-list $branch --count
     $tags = (git tag) -join ", "
     $notes = @"
 F.B. Sponsored/Ad Post Blocker - Drive snapshot
