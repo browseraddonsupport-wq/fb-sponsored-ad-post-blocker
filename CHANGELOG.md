@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.41
+
+### Fixed
+
+- **Declared an Android compatibility floor of 120.** AMO validation flagged
+  `permissions.request` as unimplemented at the stated minimum, and it was
+  right: per Mozilla's compatibility data that API landed in Firefox for
+  Android 120, while the manifest claimed 109. Below 120 the "Allow on
+  facebook.com" button in both the popup and the setup page would have done
+  nothing at all — on the one platform 1.1.39 exists to serve. 120 is also
+  where Firefox for Android gained general extension support, so it is the
+  floor at which any of this is installable anyway.
+
+  `gecko_android` sets a compatibility range separate from desktop, which is
+  what it is for. Desktop stays at 109.
+
+### Note on the two warnings left
+
+AMO still warns that `data_collection_permissions` postdates the stated
+minimum (140 desktop, 142 Android). Those are left alone deliberately: it is
+a manifest key, unknown keys are ignored by older browsers, and nothing
+behaves differently. Silencing them would mean raising the desktop floor from
+109 to 140 — cutting off every user between — to quiet a cosmetic warning
+about a key whose entire content is a declaration that no data is collected.
+
 ## 1.1.40
 
 ### Added
