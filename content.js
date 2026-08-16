@@ -609,28 +609,64 @@ function isPostReason(reason) {
 // also explains why unchecking "unfollowed", which hides the largest share of
 // any feed, was what made the blackout go away.
 //
-// visibility:hidden makes the post invisible while its box keeps exactly the
-// height it had, so Facebook's accounting sees a feed that never changed
-// shape. The cost is honest and visible: a hidden ad leaves blank space where
-// it was, rather than vanishing. That is the same "gap" reported throughout
-// testing — accepted deliberately here, because the alternative is a feed that
-// stops loading, and blank space you can scroll past beats content you cannot
-// reach.
+// Preserving the height was not enough. Measured by hand on a live feed, with
+// the extension inert: setting `data-fbsb-hidden` on six feed children and
+// nothing else — no styling, nothing visibly changed — stopped the pager dead
+// for the full 15s window. Facebook objects to *any* attribute write on a
+// direct child of its feed, presumably because its own observers treat that
+// node as having been changed underneath it.
+//
+// So the post element is untouchable: no style, no attribute. Both go on its
+// children instead, which the same experiment showed is safe — hiding the
+// inner content of six posts left the feed paging normally (+10, then +24 on
+// the following ticks).
+//
+// visibility rather than display, still, so the children keep their boxes and
+// the post keeps its height. The cost is honest and visible: a hidden ad
+// leaves blank space where it was, rather than vanishing. That is the "gap"
+// reported throughout testing — accepted deliberately, because the alternative
+// is a feed that stops loading, and blank space you can scroll past beats
+// content you cannot reach.
 function applyHide(container) {
-  if (isMobileLayout()) {
-    container.style.setProperty("visibility", "hidden", "important");
-    return "visibility";
+  if (!isMobileLayout()) {
+    container.style.setProperty("display", "none", "important");
+    return { method: "display", targets: [container], marker: container };
   }
-  container.style.setProperty("display", "none", "important");
-  return "display";
+
+  // Mobile: the feed child is untouchable. Style every one of its element
+  // children instead — that covers the post's whole visible content — and hang
+  // the marker attribute on the first of them rather than on the post.
+  const targets = Array.from(container.children);
+  if (targets.length === 0) {
+    // Nothing inside to hide. Falling back to the post itself will stall the
+    // pager, but leaving an ad visible is worse, and a childless feed entry is
+    // not a shape that has been observed.
+    container.style.setProperty("visibility", "hidden", "important");
+    return { method: "visibility", targets: [container], marker: container };
+  }
+  for (const t of targets) t.style.setProperty("visibility", "hidden", "important");
+  return { method: "inner", targets, marker: targets[0] };
 }
 
-function undoHide(container, info) {
-  if (info.hideMethod === "visibility") {
-    container.style.removeProperty("visibility");
-    return;
+function undoHide(info) {
+  const { method, targets, marker } = info.hide;
+  if (method === "display") {
+    targets[0].style.display = info.originalDisplay;
+  } else {
+    for (const t of targets) t.style.removeProperty("visibility");
   }
-  container.style.display = info.originalDisplay;
+  delete marker.dataset.fbsbHidden;
+}
+
+// The marker no longer sits on the hidden post itself, so a mutation inside one
+// resolves to a child. hiddenPosts is still keyed by the post, so step up once
+// when the marker is not itself a key.
+function hiddenContainerFor(node) {
+  const marker = node.closest("[data-fbsb-hidden]");
+  if (!marker) return null;
+  if (hiddenPosts.has(marker)) return marker;
+  const parent = marker.parentElement;
+  return parent && hiddenPosts.has(parent) ? parent : null;
 }
 
 function hidePost(container, reason, label) {
@@ -663,18 +699,17 @@ function hidePost(container, reason, label) {
   // Before the hide, while the element still has dimensions to report.
   noteHiddenSample(container, reason);
 
-  const hideMethod = applyHide(container);
-  container.dataset.fbsbHidden = reason;
-  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label, hideMethod });
+  const hide = applyHide(container);
+  hide.marker.dataset.fbsbHidden = reason;
+  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label, hide });
   if (isPostReason(reason)) reportCount(1);
 }
 
 function restorePost(container) {
   const info = hiddenPosts.get(container);
   if (!info) return;
-  undoHide(container, info);
+  undoHide(info);
   if (info.placeholder) info.placeholder.remove();
-  delete container.dataset.fbsbHidden;
   hiddenPosts.delete(container);
   if (isPostReason(info.reason)) reportCount(-1);
 }
@@ -1292,7 +1327,7 @@ const observer = new MutationObserver((mutations) => {
   const observerStartedAt = performance.now();
   for (const mutation of mutations) {
     if (mutation.addedNodes.length > 0 && mutation.target.nodeType === Node.ELEMENT_NODE) {
-      const staleContainer = mutation.target.closest("[data-fbsb-hidden]");
+      const staleContainer = hiddenContainerFor(mutation.target);
       const info = staleContainer && hiddenPosts.get(staleContainer);
       if (info && !stillQualifies(staleContainer, info)) {
         if (DEBUG) console.log("[fbsb] recycled node detected, clearing stale hide:", staleContainer);

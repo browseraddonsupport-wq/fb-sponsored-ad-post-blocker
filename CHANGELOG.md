@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.1.50
+
+### Fixed
+
+- **The mobile feed stopped paging because of a single attribute write.**
+  1.1.49 preserved every post's height and the feed still stalled, so the
+  problem was never the geometry.
+
+  Isolated by hand on a live phone feed, with the extension installed but all
+  hiding switched off:
+
+  | What was done to 6 feed children | Feed after 15s |
+  | --- | --- |
+  | Nothing (extension inert) | +58 posts — paging normally |
+  | `data-fbsb-hidden` + inline style | stalled |
+  | **`data-fbsb-hidden` only, no styling** | **stalled** |
+  | `visibility: hidden` on their *children* | +34 posts — still paging |
+
+  Setting one data attribute, changing nothing visible, was enough to stop
+  Facebook's pager for the full window. Its own observers evidently treat a
+  direct feed child that has been written to as changed underneath it, and stop
+  reconciling.
+
+  So the post element is now untouchable — no style, no attribute. Both go on
+  its children instead: every element child gets `visibility: hidden`, and the
+  marker attribute rides on the first of them. The children keep their boxes,
+  so the post keeps its height, and Facebook sees a feed it still owns.
+
+  `hiddenPosts` is still keyed by the post, so recycled-node detection resolves
+  a marker to its parent when the marker is not itself a key.
+
+  Desktop is unchanged: it removes posts with `display: none` as before, and
+  nothing there is virtualised or reconciled this way.
+
+### Still to verify
+
+That the feed keeps paging with the extension actually doing the hiding, over a
+long scroll — the table above was measured by hand, six posts at a time. It
+also leaves blank space where each hidden post was, which is now the only known
+remaining problem on mobile rather than one of several.
+
 ## 1.1.49
 
 ### Fixed
