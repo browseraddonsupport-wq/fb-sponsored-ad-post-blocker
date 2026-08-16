@@ -114,11 +114,17 @@ Its costs, both real:
 
 ## Unknowns — measure these before deciding
 
-1. **Is the extension even responsible for the blank regions?** The control
-   test was never run. Disable the extension entirely, reload, scroll past the
-   first few posts. If the blank region persists, this is Facebook's
-   virtualisation failing in Gecko and not ours to fix. *This is the cheapest
-   and most important outstanding measurement.*
+1. ~~**Is the extension even responsible for the blank regions?**~~
+   **Answered 2026-08-15: yes.** With the extension disabled, the feed does not
+   blank — it scrolls normally. Baseline Waterfox Android renders Facebook's
+   mobile feed fine, so every blank region and gap seen during this session was
+   caused by the extension's hiding, and the "hiding disturbs Facebook's
+   swap-in loop" explanation stands on evidence rather than inference.
+
+   Consequence worth carrying forward: **gaps are not exclusive to 1.1.44.**
+   They were reported before it too, when only rendered posts were hidden. So
+   1.1.45's hide-on-reveal, which also removes rendered posts, may still
+   produce them — it addresses the blackout and the filtering, not the gaps.
 2. **Blackout mechanism.** Is the loop stalling, or is `unfollowed` simply
    hiding most of a feed that is mostly Pages the user doesn't follow? A short
    feed and a stalled feed are different bugs. The diagnostics panel's
