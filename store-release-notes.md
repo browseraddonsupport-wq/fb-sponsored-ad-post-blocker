@@ -1,78 +1,79 @@
-# Store release notes — 1.1.42
+# Store release notes — 1.1.50
 
-Covers 1.1.39 through 1.1.42. 1.1.38 is the last version published on AMO, so
-everything up to and including it is live. Written for the listing pages, not
-for developers; the technical record is in CHANGELOG.md.
+Covers 1.1.39 through 1.1.50. 1.1.38 was the last version published before this
+span began. AMO is current at 1.1.50; the Chrome Web Store is behind, with a
+submission awaiting review. Written for the listing pages, not for developers;
+the technical record is in CHANGELOG.md.
 
 ---
 
-## Who this release is actually for
+## Who this span is actually for
 
-Worth deciding before submitting anywhere: **nothing here changes desktop
-behaviour.** The whole span is mobile work plus one diagnostic. Desktop was
-explicitly unchanged in 1.1.39 and re-verified against a live feed.
+**Nothing here changes desktop behaviour.** All of it is mobile work plus
+diagnostics. Desktop was explicitly unchanged in 1.1.39 and re-verified against
+a live feed, and every mobile code path since is gated on the mobile layout.
 
-That means:
+- **Firefox (AMO) — the whole point.** Firefox for Android installs extensions
+  from AMO, and those users go from "hides nothing at all" to a working
+  filtered feed. Desktop Firefox users get nothing they will notice.
+- **Chrome Web Store — nothing observable for its users.** Chrome on Android
+  does not support extensions, and desktop Chrome is served the desktop layout,
+  so no Chrome user can reach the code paths this span adds. Worth submitting
+  only to keep the two stores on the same version. Notes are drafted below for
+  when the pending review clears.
 
-- **Firefox (AMO) — worth submitting.** Firefox for Android installs
-  extensions from AMO, so those users go from "hides nothing at all" to
-  working, and gain a setting for the "Open app" bar. Desktop Firefox users
-  get nothing they will notice.
-- **Chrome Web Store — arguably not worth submitting.** Chrome on Android does
-  not support extensions, and desktop Chrome is served the desktop layout, so
-  no Chrome user can reach the code paths these releases add. Submitting means
-  a review cycle for changes none of them will observe. Notes are drafted below
-  anyway, in case you would rather keep the two stores on the same version.
+### The honest short version
 
-What is in the span, from a user's point of view:
+Mobile support was announced in 1.1.39 and **did not actually work until
+1.1.50.** Four releases claimed it, because each was validated against a
+desktop browser pretending to be a phone — which serves the same page but does
+not behave the same way. It was fixed only after testing on a real device.
 
-- **1.1.39** — works on Facebook's mobile web layout at all.
-- **1.1.40** — new setting: hide the mobile "Open app" bar. **This is the only
-  user-visible addition**, and it takes the popup from four checkboxes to five.
-- **1.1.41** — declares a Firefox for Android minimum of 120. No behaviour
-  change; it stops the extension being offered to Android versions where the
-  permission request it relies on does not exist.
-- **1.1.42** — logs a warning when Facebook changes its markup in a way that
-  breaks detection. Invisible unless you open the browser console.
+Worth remembering before writing "now works on mobile" anywhere again.
 
 ---
 
 ## Firefox (AMO) — "Release Notes" field
 
-Now works on Facebook's mobile site, and adds a setting for the "Open app" bar.
+Filtering now works properly on Facebook's mobile site.
 
-- If you use this extension in Firefox for Android, it should now hide
-  sponsored posts, ads, and posts from Pages you don't follow on your phone,
-  the same as it does on a computer. Previously it installed and looked fine
-  there but never hid anything.
-- New setting: **Hide the mobile "Open app" bar** — the bar Facebook pins to
-  the bottom of the screen on phones, pushing you into its app. On by default.
-  It has no effect on a computer, where the bar doesn't exist.
-- Nothing else changes on desktop. If you only use Firefox on a computer, this
+- **On a phone, posts are now actually hidden as you scroll.** Earlier versions
+  installed and looked fine on Android but filtered little or nothing beyond
+  the first screenful. Sponsored posts, ads, "Suggested for you" and posts from
+  Pages you don't follow are now hidden throughout the feed.
+- **Hidden posts leave a blank space on phones.** This is deliberate. Facebook
+  loads its mobile feed in batches, and it stops loading more if the page
+  shrinks underneath it — so a hidden post keeps its space and simply shows
+  nothing. Removing that space stops your feed loading, which is worse.
+- **Hide the mobile "Open app" bar** — a setting for the bar Facebook pins to
+  the bottom of the screen pushing you into its app. On by default, and it has
+  no effect on a computer.
+- **A Diagnostics section in the popup**, collapsed by default. It reports what
+  the extension is seeing and doing on the current page. Only useful if
+  something looks wrong — phones have no developer console, and this is the
+  only way to see what happened.
+- **Nothing changes on desktop.** If you only use Firefox on a computer, this
   update makes no visible difference.
 
-Facebook serves phones a completely different version of the site — different
-enough that the extension had no way to tell where one post ended and the next
-began. That is what these releases add.
-
-Known limitation: ads in the right-hand column on desktop are detected but not
-yet hidden. English-language labels only.
+Known limitations: ads in the right-hand column on desktop are detected but not
+yet hidden. English-language labels only. On phones, hidden posts leave blank
+space, as above.
 
 ---
 
 ## Chrome Web Store — "What's new" (short field)
 
-Adds support for Facebook's mobile web layout, and a setting to hide the mobile
-"Open app" bar. Both have no effect in Chrome on a computer, where Facebook
-serves the desktop layout and behaviour is unchanged — they are included so
-both browsers ship from the same source. No changes to what is hidden on
-desktop, or to permissions.
+Improves filtering on Facebook's mobile web layout, and adds a Diagnostics
+section to the toolbar popup. Neither has any effect in Chrome on a computer,
+where Facebook serves the desktop layout and behaviour is unchanged — they are
+included so both browsers ship from the same source. No changes to what is
+hidden on desktop, or to permissions.
 
 ---
 
 ## Chrome Web Store — permission justifications
 
-Unchanged since 1.1.33 and re-verified against the 1.1.42 source: no
+Unchanged since 1.1.33 and re-verified against the 1.1.50 source: no
 fetch/XMLHttpRequest/WebSocket/sendBeacon, no eval or new Function, no
 importScripts, no remote scripts or stylesheets, and the only external URL
 anywhere is the facebook.com link on the setup page. Permissions are still
@@ -112,15 +113,18 @@ Certify that the extension does NOT collect or transmit any of the listed
 categories. It makes no network requests. The only data written anywhere is the
 five preference booleans, held in local extension storage on the device.
 
-Note for 1.1.42: the extension may write a diagnostic warning to the browser
-console when Facebook's markup changes in a way that stops detection working.
-It is written to the console only — not collected, stored, or transmitted.
+Note on the Diagnostics section added in 1.1.43: it reports counts, element tag
+names and pixel dimensions from the page the user is already viewing, rendered
+in the extension's own popup. It is never stored or transmitted, and it is
+discarded when the page is closed. The extension may also write a diagnostic
+warning to the browser console when Facebook's markup changes in a way that
+stops detection working — console only, not collected.
 
 ### Not requested, and why it matters if asked
 
-- "tabs" is not requested. The popup reads the active tab's URL through the
-  facebook.com host permission it already has, and tabs.reload() needs no
-  permission of its own.
+- "tabs" is not requested. The popup reads the active tab's URL and messages
+  the content script through the facebook.com host permission it already has,
+  and tabs.reload() needs no permission of its own.
 - "scripting" is not requested; the content script is declared statically in
   the manifest.
 - No optional or broad host permissions such as <all_urls>.
