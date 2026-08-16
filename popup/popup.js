@@ -107,7 +107,8 @@ async function showDiagnostics(tabId) {
   const lines = [
     `v${d.version}  ${d.layout}  viewport ${d.viewport}`,
     `body: ${d.bodyClass || "(none)"}`,
-    `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}  waiting ${d.pending}`,
+    `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
+    `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];

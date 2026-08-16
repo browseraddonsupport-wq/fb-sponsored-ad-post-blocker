@@ -459,7 +459,16 @@ function findMobilePostContainer(label, reason) {
       // Ads that are off-screen now are caught when Facebook reveals them, by
       // the reveal observer below, at which point they have boxes and pass
       // here normally.
-      if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
+      if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) {
+        // A candidate with no box at all was rejected because Facebook has not
+        // rendered it yet — an expected, temporary miss that the reveal
+        // observer will retry. One that has a box and is merely narrow is a
+        // real rejection. Only the second is evidence of anything being wrong,
+        // and conflating them made the breakage warning fire on every mobile
+        // page load claiming Facebook had renamed the structure.
+        deferredUnrendered = node.offsetWidth === 0 && node.offsetHeight === 0;
+        return null;
+      }
 
       // Remember the feed the moment one is identified, so the reveal observer
       // has something to watch. This is the only place that knows which
@@ -762,12 +771,15 @@ function processLabel(label) {
   if (DEBUG) stats.matched[reason] = (stats.matched[reason] || 0) + 1;
   noteLabelClassified();
 
+  // Cleared before the attempt so it can only describe this one.
+  deferredUnrendered = false;
   const resolved = tryHideFromLabel(label, reason);
   if (resolved) {
     if (DEBUG) stats.hidden += 1;
     noteLabelAnchored();
     return;
   }
+  noteLabelUnresolved();
 
   // A label that classifies but can't be anchored may still be a portal span
   // that simply sits deeper than the shallow check's threshold — Facebook
@@ -815,19 +827,39 @@ function processLabel(label) {
 const BREAKAGE_MIN_LABELS = 20;
 let labelsClassified = 0;
 let labelsAnchored = 0;
+let labelsDeferred = 0;
 let breakageWarned = false;
+
+// Set by findMobilePostContainer when it rejects a candidate that has no box
+// because Facebook has not rendered it yet. Read once, immediately after the
+// resolution attempt that set it.
+let deferredUnrendered = false;
 
 function noteLabelAnchored() {
   labelsAnchored += 1;
 }
 
-// Called once per classified label. Anchoring even one label means resolution
-// works and the question is settled for this page — a feed where some posts
-// resolve and others don't is ordinary, and not what this is looking for.
 function noteLabelClassified() {
   labelsClassified += 1;
+}
+
+// Called once per label that classified but could not be anchored.
+//
+// A miss on a virtualised-out post is not breakage: on mobile most of the feed
+// is unrendered at any moment, those candidates have no box, and 1.1.45 defers
+// them to the reveal observer by design. Counting them made this warning fire
+// on every mobile page load, blaming a renamed structure for the extension
+// working exactly as intended.
+//
+// Anchoring even one label settles the question for this page — a feed where
+// some posts resolve and others don't is ordinary, and not what this looks for.
+function noteLabelUnresolved() {
+  if (deferredUnrendered) {
+    labelsDeferred += 1;
+    return;
+  }
   if (breakageWarned || labelsAnchored > 0) return;
-  if (labelsClassified < BREAKAGE_MIN_LABELS) return;
+  if (labelsClassified - labelsDeferred < BREAKAGE_MIN_LABELS) return;
   breakageWarned = true;
 
   const mobile = isMobileLayout();
@@ -915,6 +947,10 @@ function buildDiagnostics() {
     viewport: `${window.innerWidth}x${window.innerHeight}`,
     classified: labelsClassified,
     anchored: labelsAnchored,
+    // Labels whose post Facebook had not rendered yet. Expected on mobile, and
+    // retried when the reveal observer sees them — a large number here beside a
+    // healthy anchored count is the system working, not failing.
+    deferred: labelsDeferred,
     hidden: hiddenPosts.size,
     pending: pendingLabels.size,
     thresholds: `kids>=${MOBILE_FEED_MIN_CHILDREN} width>=${MOBILE_MIN_WIDTH_RATIO}`,

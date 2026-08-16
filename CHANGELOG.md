@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.46
+
+### Fixed
+
+- **The breakage warning fired on every mobile page load, blaming Facebook for
+  the extension working correctly.** Observed on a real device running 1.1.45:
+
+  > `[fbsb] 20 labels matched, none could be anchored to a post ... If this is
+  > a phone, the mobile class was probably renamed.`
+
+  The mobile class had not been renamed — the warning says so itself two lines
+  earlier, reporting the gate as `mobile`. What actually happened is that most
+  of a virtualised feed is unrendered at any moment, those candidates have no
+  box, and since 1.1.45 they are deliberately deferred to the reveal observer.
+  The 1.1.42 check counted every deferral as a failure to anchor, so it
+  tripped its threshold on any mobile feed within a second of loading.
+
+  A miss on a post Facebook hasn't rendered is now counted separately and
+  excluded from the threshold. What remains is what the check was written for:
+  labels that should have anchored against something rendered, and didn't.
+
+  This mattered beyond the noise. The warning is not `DEBUG`-gated, so it
+  reached anyone with a console open, and it pointed confidently at the wrong
+  cause — the exact failure mode 1.1.42 was built to prevent.
+
+- The diagnostics panel reports `deferred` alongside the other counts. A large
+  number there next to a healthy `anchored` is the reveal mechanism working,
+  not failing.
+
 ## 1.1.45
 
 ### Fixed
