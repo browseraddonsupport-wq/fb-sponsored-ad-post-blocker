@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1.48
+
+### Added
+
+- **Real timings in the diagnostics panel.** Three costs, kept apart, with each
+  shown as a share of wall-clock time on the page:
+
+  ```
+  over 47s on page:
+    scan     312ms  0.7%  (204 scans, 18422 els)
+    observer  88ms  0.2%  (1310 calls)
+    retry      4ms  0.0%  (12 ticks)
+  ```
+
+  They are separated because they fail for different reasons, and 1.1.35
+  proved a healthy scan figure says nothing about the other two: it reported
+  `1.0ms across 274 scans` while the page was unusable, because the cost was in
+  the retry loop, which never calls `scanRoot`. The observer had the same blind
+  spot until 1.1.42. Now all three are visible, and on a phone, which is where
+  none of them could be read before.
+
+  The percentage is the number worth reading. Milliseconds alone mean nothing
+  without knowing over how long they accumulated.
+
+  Scan timing was already collected in release builds — `reportStats` returns
+  early when `DEBUG` is false, so nothing ever reset it — it simply had no way
+  to be seen. Observer timing is now collected unconditionally too: two
+  `performance.now()` calls per callback cost far less than what they measure,
+  and a figure that only exists in a build nobody installs is not a
+  measurement. Retry timing is new.
+
+  In a `DEBUG` build these are a rolling 2s window rather than cumulative,
+  because `reportStats` resets them. Worth remembering before comparing figures
+  between the two builds.
+
 ## 1.1.47
 
 ### Fixed

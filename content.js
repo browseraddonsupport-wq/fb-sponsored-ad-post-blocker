@@ -971,6 +971,20 @@ function buildDiagnostics() {
     // healthy anchored count is the system working, not failing.
     deferred: labelsDeferred,
     reveals: revealScans,
+    // Cumulative since page load in a release build — reportStats returns early
+    // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
+    // rolling 2s window instead, which is worth remembering before comparing
+    // figures between the two.
+    timing: {
+      scanMs: stats.ms,
+      scans: stats.scans,
+      elements: stats.elements,
+      observerMs: stats.observerMs,
+      observerCalls: stats.observerCalls,
+      retryMs: stats.retryMs,
+      retryTicks: stats.retryTicks,
+      uptimeMs: performance.now(),
+    },
     hidden: hiddenPosts.size,
     pending: pendingLabels.size,
     thresholds: `kids>=${MOBILE_FEED_MIN_CHILDREN} width>=${MOBILE_MIN_WIDTH_RATIO}`,
@@ -1025,6 +1039,11 @@ function logUnresolved(label, reason) {
 }
 
 function retryPendingLabels() {
+  // The retry loop is where 1.1.35 hid: a growing queue re-examined every 50ms,
+  // invisible to the scan timer because it never calls scanRoot. Timing it is
+  // the only way that shape shows up as a number rather than as a page that
+  // feels wrong.
+  const retryStartedAt = performance.now();
   const now = Date.now();
   for (const [label, firstSeenAt] of pendingLabels) {
     if (!label.isConnected || now - firstSeenAt > RETRY_WINDOW_MS) {
@@ -1047,6 +1066,8 @@ function retryPendingLabels() {
       pendingLabels.delete(label);
     }
   }
+  stats.retryMs += performance.now() - retryStartedAt;
+  stats.retryTicks += 1;
 }
 
 // Run the retry loop only while there's actually something pending,
@@ -1131,7 +1152,7 @@ const LABEL_SELECTOR = "span, a, use, [aria-label], [aria-labelledby]";
 // not the bottleneck no matter what else is wrong; if it is hundreds, we are.
 const stats = {
   ms: 0, scans: 0, elements: 0, reportedAt: 0, matched: {}, hidden: 0,
-  observerMs: 0, observerCalls: 0,
+  observerMs: 0, observerCalls: 0, retryMs: 0, retryTicks: 0,
 };
 
 function reportStats(now) {
@@ -1226,7 +1247,11 @@ function stillQualifies(container, info) {
 }
 
 const observer = new MutationObserver((mutations) => {
-  const observerStartedAt = DEBUG ? performance.now() : 0;
+  // Timed unconditionally now. Two performance.now() calls per callback is far
+  // cheaper than the thing they measure, and on Android the console this used
+  // to report to does not exist — the figure is only useful if the popup can
+  // read it, which means collecting it in the build people actually install.
+  const observerStartedAt = performance.now();
   for (const mutation of mutations) {
     if (mutation.addedNodes.length > 0 && mutation.target.nodeType === Node.ELEMENT_NODE) {
       const staleContainer = mutation.target.closest("[data-fbsb-hidden]");
@@ -1250,10 +1275,8 @@ const observer = new MutationObserver((mutations) => {
   // its initial render, and cacheLabelTargets walks each added subtree — none
   // of which the scan timer sees. A regression here is invisible in the scan
   // figure while being exactly what makes a page feel slow.
-  if (DEBUG) {
-    stats.observerMs += performance.now() - observerStartedAt;
-    stats.observerCalls += 1;
-  }
+  stats.observerMs += performance.now() - observerStartedAt;
+  stats.observerCalls += 1;
 });
 
 // Start watching and hiding immediately, before settings are read. main() has

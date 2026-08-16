@@ -113,6 +113,22 @@ async function showDiagnostics(tabId) {
     `feed: ${d.feed || "n/a"}`,
   ];
 
+  // The three costs that can make a page feel slow, kept apart because they
+  // fail for different reasons and 1.1.35 proved a healthy scan figure says
+  // nothing about the other two. The share of wall-clock time is the number
+  // worth reading: milliseconds alone mean little without knowing over how long.
+  const t = d.timing;
+  if (t) {
+    const pct = (ms) => (t.uptimeMs > 0 ? ((ms / t.uptimeMs) * 100).toFixed(1) : "?");
+    lines.push(
+      "",
+      `over ${(t.uptimeMs / 1000).toFixed(0)}s on page:`,
+      `  scan     ${t.scanMs.toFixed(0)}ms  ${pct(t.scanMs)}%  (${t.scans} scans, ${t.elements} els)`,
+      `  observer ${t.observerMs.toFixed(0)}ms  ${pct(t.observerMs)}%  (${t.observerCalls} calls)`,
+      `  retry    ${t.retryMs.toFixed(0)}ms  ${pct(t.retryMs)}%  (${t.retryTicks} ticks)`
+    );
+  }
+
   if (!d.samples.length) {
     lines.push("", "no posts hidden yet — nothing to sample");
   } else {
