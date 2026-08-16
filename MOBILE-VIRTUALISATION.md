@@ -4,6 +4,28 @@ Written 2026-08-15, at the end of the first real-device testing session. The
 decision about how to handle this was deliberately deferred; this is the state
 of the evidence, not a plan.
 
+## The honest summary
+
+**Mobile has never worked in practice.** Not in 1.1.39 when it was declared
+working, and not in any release since. The user's experience across all of them
+is ads and unfollowed posts throughout the feed.
+
+Evidence exists that *something* was hidden — two feed children carried
+`data-fbsb-hidden=sponsored`, and the badge reached 12 — so it is not zero. But
+a handful of hides inside the render window, on a feed where most posts are
+virtualised out and never resolve at all, is not a filtered feed.
+
+Worth being blunt about why it shipped: 1.1.39–1.1.41 were validated against a
+**desktop browser with a spoofed user agent at 1345px**. That serves the same
+weblite markup, which is why the work looked correct — but a desktop viewport
+does not virtualise. The single property of the real environment that breaks
+this was absent from every test that declared it working, and stayed absent
+until the first real device was tried.
+
+Any future claim that mobile works should be backed by a real device, scrolled
+a long way, with the diagnostics panel read — not by markup that merely
+resembles it.
+
 ## Current state, and the thing to know first
 
 **1.1.44 is published and installed, and it blanks the mobile feed** unless
