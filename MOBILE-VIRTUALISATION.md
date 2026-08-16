@@ -4,11 +4,39 @@ Written 2026-08-15, at the end of the first real-device testing session. The
 decision about how to handle this was deliberately deferred; this is the state
 of the evidence, not a plan.
 
-## The honest summary
+## Resolved in 1.1.50 — verified on a real device
 
-**Mobile has never worked in practice.** Not in 1.1.39 when it was declared
-working, and not in any release since. The user's experience across all of them
-is ads and unfollowed posts throughout the feed.
+Mobile works. Confirmed on stock Firefox for Android against a live feed: posts
+are hidden and the feed keeps paging as you scroll. Blank space remains where
+each hidden post was — that is the deliberate trade described below, and the
+only known outstanding problem.
+
+**The cause, after several wrong theories:** Facebook's feed stops paging if
+*any* attribute is written to a direct child of the feed container. Isolated by
+hand, with the extension inert, six feed children, 15s of scrolling each:
+
+| Done to 6 feed children | Result |
+| --- | --- |
+| Nothing | +58 posts, paging normally |
+| `data-fbsb-hidden` + inline style | stalled |
+| **`data-fbsb-hidden` alone, no styling** | **stalled** |
+| `visibility: hidden` on their *children* | +34 posts, still paging |
+
+One data attribute, nothing visible changed, stopped the pager. So the post
+element is untouchable; styling and the marker both live on its children, which
+keep their boxes so the post keeps its height.
+
+Theories this disproved along the way, all of which looked convincing:
+`display: contents` wrappers, the width guard degrading at phone widths,
+geometry/height accounting, main-thread starvation, Waterfox's user agent, and
+Facebook's GWT `user.agent` mismatch error (real, present on every Gecko mobile
+browser, and irrelevant to this).
+
+## The history below, kept because it explains how the code got its shape
+
+**Mobile did not work in practice until 1.1.50.** Not in 1.1.39 when it was
+declared working, and not in any release until the one above. The user's
+experience across all of them was ads and unfollowed posts throughout the feed.
 
 Evidence exists that *something* was hidden — two feed children carried
 `data-fbsb-hidden=sponsored`, and the badge reached 12 — so it is not zero. But

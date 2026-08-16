@@ -34,12 +34,17 @@
   Desktop is unchanged: it removes posts with `display: none` as before, and
   nothing there is virtualised or reconciled this way.
 
-### Still to verify
+### Verified on a device
 
-That the feed keeps paging with the extension actually doing the hiding, over a
-long scroll — the table above was measured by hand, six posts at a time. It
-also leaves blank space where each hidden post was, which is now the only known
-remaining problem on mobile rather than one of several.
+Stock Firefox for Android, live feed: posts are hidden and the feed keeps
+paging as you scroll. This is the first release for which that is true — 1.1.39
+through 1.1.49 all claimed mobile support and none of them delivered it,
+because every one was validated against a spoofed desktop viewport that does
+not virtualise.
+
+Blank space remains where each hidden post was. That is the deliberate trade,
+and it is now the only known outstanding problem on mobile rather than one of
+several.
 
 ## 1.1.49
 
