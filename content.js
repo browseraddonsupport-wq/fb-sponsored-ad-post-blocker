@@ -595,6 +595,44 @@ function isPostReason(reason) {
   return reason !== "appbanner";
 }
 
+// How a post is taken out of the feed, and it differs by layout for a reason
+// measured on a real device.
+//
+// Desktop removes the post outright: display:none, no space left behind.
+//
+// Mobile cannot. Facebook virtualises that feed and decides what to page in
+// next by measuring rendered content, so removing a post's height corrupts the
+// figure it works from. Hide enough and the loop loses its footing and stops
+// paging entirely — a few posts load and everything below stays blank. Proven
+// by control test on stock Firefox for Android: extension off, the feed keeps
+// loading indefinitely; extension on, it stalls within about 15 seconds. It
+// also explains why unchecking "unfollowed", which hides the largest share of
+// any feed, was what made the blackout go away.
+//
+// visibility:hidden makes the post invisible while its box keeps exactly the
+// height it had, so Facebook's accounting sees a feed that never changed
+// shape. The cost is honest and visible: a hidden ad leaves blank space where
+// it was, rather than vanishing. That is the same "gap" reported throughout
+// testing — accepted deliberately here, because the alternative is a feed that
+// stops loading, and blank space you can scroll past beats content you cannot
+// reach.
+function applyHide(container) {
+  if (isMobileLayout()) {
+    container.style.setProperty("visibility", "hidden", "important");
+    return "visibility";
+  }
+  container.style.setProperty("display", "none", "important");
+  return "display";
+}
+
+function undoHide(container, info) {
+  if (info.hideMethod === "visibility") {
+    container.style.removeProperty("visibility");
+    return;
+  }
+  container.style.display = info.originalDisplay;
+}
+
 function hidePost(container, reason, label) {
   const originalDisplay = container.style.display || "";
   let placeholder = null;
@@ -625,16 +663,16 @@ function hidePost(container, reason, label) {
   // Before the hide, while the element still has dimensions to report.
   noteHiddenSample(container, reason);
 
-  container.style.setProperty("display", "none", "important");
+  const hideMethod = applyHide(container);
   container.dataset.fbsbHidden = reason;
-  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label });
+  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label, hideMethod });
   if (isPostReason(reason)) reportCount(1);
 }
 
 function restorePost(container) {
   const info = hiddenPosts.get(container);
   if (!info) return;
-  container.style.display = info.originalDisplay;
+  undoHide(container, info);
   if (info.placeholder) info.placeholder.remove();
   delete container.dataset.fbsbHidden;
   hiddenPosts.delete(container);

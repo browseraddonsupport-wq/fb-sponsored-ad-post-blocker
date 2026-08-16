@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.49
+
+### Fixed
+
+- **The mobile feed stopped loading after about 15 seconds of scrolling, and
+  it was us.** Established by control test on stock Firefox for Android:
+  extension disabled, the feed pages in new posts indefinitely; extension
+  enabled, it stalls. Same account, same feed, same browser.
+
+  Facebook virtualises that feed and decides what to page in next by measuring
+  rendered content. `display: none` removes a post's height from that
+  measurement, so hiding posts corrupts the figure the loop works from — hide
+  enough and it stops paging entirely. This also explains two things that never
+  quite added up: unchecking "Hide posts from Pages/Groups you don't follow",
+  which hides the largest share of any feed, made the blackout go away; and
+  1.1.44's pre-hiding, which hid far more posts than anything before it, made
+  it dramatically worse.
+
+  On mobile a post is now hidden with `visibility: hidden` instead. It becomes
+  invisible while its box keeps exactly the height it had, so Facebook's
+  accounting sees a feed that never changed shape.
+
+  **The cost is deliberate and visible: a hidden ad leaves blank space where it
+  was, rather than vanishing.** That is the same gap reported throughout
+  testing, now accepted on purpose — blank space you can scroll past beats
+  content you cannot reach. Desktop is unchanged and still removes posts
+  outright; nothing there is virtualised this way.
+
+### Note
+
+With placeholder mode on, mobile now shows both the placeholder bar and the
+blank space of the post behind it. Untidy, and left alone for now: the point of
+this release is to find out whether preserving height keeps the feed alive.
+
 ## 1.1.48
 
 ### Added
