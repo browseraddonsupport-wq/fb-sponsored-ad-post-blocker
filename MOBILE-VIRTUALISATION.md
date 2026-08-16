@@ -21,10 +21,24 @@ hand, with the extension inert, six feed children, 15s of scrolling each:
 | `data-fbsb-hidden` + inline style | stalled |
 | **`data-fbsb-hidden` alone, no styling** | **stalled** |
 | `visibility: hidden` on their *children* | +34 posts, still paging |
+| `display: none` on their *children* (collapsing the space) | stalled |
 
 One data attribute, nothing visible changed, stopped the pager. So the post
 element is untouchable; styling and the marker both live on its children, which
 keep their boxes so the post keeps its height.
+
+**The blank space is permanent, not a loose end.** The last row is the answer to
+"can we collapse it": no. Touching only the children is safe, but making them
+`display: none` shrinks the post, and the pager stops just as surely as it does
+on an attribute write. Facebook objects both to being written to and to the
+feed changing height underneath it. Anything that reclaims that space will stall
+the feed, so a hidden post has to keep its full height and the gap stays.
+
+The remaining scope for improvement is cosmetic and lives *inside* the post:
+its children can be styled freely, so the space could be made to read as
+deliberate — a marker rendered within the existing height — rather than left
+blank. Untested, but it is the only direction that does not violate a
+constraint already measured.
 
 Theories this disproved along the way, all of which looked convincing:
 `display: contents` wrappers, the width guard degrading at phone widths,
