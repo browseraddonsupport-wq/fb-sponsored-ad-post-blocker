@@ -372,6 +372,64 @@ const MOBILE_MAX_CLIMB = 12;
 // width rejects that without needing to know what the carousel is.
 const MOBILE_MIN_WIDTH_RATIO = 0.6;
 
+// --- Catching posts as Facebook reveals them -------------------------------
+//
+// Facebook renders a window of the feed and swaps batches in as you scroll.
+// That swap is not a childList mutation — it flips `display` on children that
+// already exist — so the MutationObserver never sees it, and an ad revealed
+// this way would go unfiltered for as long as you kept scrolling. That is why
+// mobile filtered almost nothing: the rendered window is a small fraction of
+// the feed, and everything outside it arrived unexamined.
+//
+// 1.1.44 tried to pre-empt the reveal by hiding posts while they were still
+// virtualised out. That stalled Facebook's swap-in loop, which works from
+// rendered content, and blanked the feed below the first few posts.
+//
+// So wait for the reveal instead of racing it. IntersectionObserver is the
+// cheap way to notice: no polling, no attribute storms, and it stays silent
+// while nothing moves — unlike a scroll handler, which is the shape of the
+// 1.1.35 freeze. The margin means a post is scanned while still below the
+// fold, so it is hidden before it is seen rather than flashing into view.
+const REVEAL_MARGIN = "800px";
+
+let mobileFeed = null;
+let revealObserver = null;
+let feedChildObserver = null;
+
+function observeFeedChildren() {
+  if (!mobileFeed || !revealObserver) return;
+  // observe() on an already-observed element is a no-op, so this can be called
+  // as often as the feed changes without tracking what is already watched.
+  for (const child of mobileFeed.children) revealObserver.observe(child);
+}
+
+function noteMobileFeed(feed) {
+  if (mobileFeed === feed) return;
+  mobileFeed = feed;
+
+  if (!revealObserver) {
+    revealObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) scheduleScan(entry.target);
+        }
+      },
+      { rootMargin: REVEAL_MARGIN }
+    );
+  } else {
+    revealObserver.disconnect();
+  }
+
+  observeFeedChildren();
+
+  // Facebook appends more children as you page further down. childList on the
+  // feed element itself — not its subtree — is a handful of callbacks per page
+  // of scrolling, rather than one per mutation inside every post.
+  if (feedChildObserver) feedChildObserver.disconnect();
+  feedChildObserver = new MutationObserver(observeFeedChildren);
+  feedChildObserver.observe(feed, { childList: true });
+}
+
 function findMobilePostContainer(label, reason) {
   // The app banner is a fixed bar, not a feed child — climbing by child count
   // would walk straight past it to the page wrapper.
@@ -387,23 +445,27 @@ function findMobilePostContainer(label, reason) {
     if (!parent || parent === document.body) return null;
 
     if (parent.children.length >= MOBILE_FEED_MIN_CHILDREN) {
-      // The width rule rejects nested carousel items, which are real boxes that
-      // happen to be narrow. It cannot say anything about an element that has
-      // no box at all — and on mobile most of the feed has none, because
-      // Facebook virtualises it: off-screen posts are display:none with a
-      // filler reserving their scroll height. Measured on a live phone feed,
-      // 42 of 64 feed children were display:none at once.
+      // Facebook virtualises this feed: most children are display:none at any
+      // moment, behind a filler reserving their scroll height (measured: 42 of
+      // 64 children hidden, filler 13,226px). Those report offsetWidth 0, so
+      // this rule rejects them.
       //
-      // Those report offsetWidth 0, so the rule read "narrower than 60% of the
-      // feed" and dropped every one. Every off-screen ad was classified,
-      // rejected here, and forgotten; Facebook then revealed it unfiltered on
-      // scroll. That is why ads kept appearing on a phone while the badge
-      // insisted posts were being hidden.
+      // That rejection is deliberate, and 1.1.44 was wrong to remove it.
+      // Resolving virtualised-out posts let us hide them before Facebook had
+      // rendered them, and its swap-in loop — which works from rendered
+      // content — stalled: a few posts would load and everything below stayed
+      // blank. Whatever this rule costs, it is not worth breaking the feed.
       //
-      // "Not currently rendered" and "too narrow to be a post" are different
-      // claims, and only the second one is evidence against this being a post.
-      const hasBox = node.offsetWidth > 0 || node.offsetHeight > 0;
-      if (hasBox && node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
+      // Ads that are off-screen now are caught when Facebook reveals them, by
+      // the reveal observer below, at which point they have boxes and pass
+      // here normally.
+      if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) return null;
+
+      // Remember the feed the moment one is identified, so the reveal observer
+      // has something to watch. This is the only place that knows which
+      // container is the feed, and it knows it as a side effect of a
+      // successful climb rather than by searching for it.
+      noteMobileFeed(parent);
 
       // The mobile equivalent of isAuthorLevelLabel. There are no headings to
       // key off, but the post's own author header is its first child subtree,
@@ -856,6 +918,12 @@ function buildDiagnostics() {
     hidden: hiddenPosts.size,
     pending: pendingLabels.size,
     thresholds: `kids>=${MOBILE_FEED_MIN_CHILDREN} width>=${MOBILE_MIN_WIDTH_RATIO}`,
+    // Whether the reveal observer has a feed to watch is the first thing to
+    // check when mobile filters nothing: no feed means no reveals are seen,
+    // and only the posts rendered at load ever get examined.
+    feed: mobileFeed
+      ? `watching ${mobileFeed.children.length} children (reveal margin ${REVEAL_MARGIN})`
+      : "not identified",
     samples: diagSamples,
   };
 }

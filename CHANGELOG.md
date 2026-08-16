@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.1.45
+
+### Fixed
+
+- **Reverted 1.1.44's pre-hiding, which blanked the feed.** Resolving posts
+  while Facebook still had them virtualised out let the extension hide them
+  before they were ever rendered, and Facebook's swap-in loop — which works
+  from rendered content — stalled: a few posts loaded and everything below
+  stayed blank. The width rule is strict again.
+
+### Added
+
+- **Posts are now filtered when Facebook reveals them.** This is the actual
+  reason mobile filtered almost nothing, in every release since 1.1.39.
+
+  Facebook renders a window of the feed and swaps batches in as you scroll.
+  That swap flips `display` on children that already exist — it is not a
+  `childList` mutation, so the MutationObserver never saw it. Only the posts
+  rendered at page load were ever examined; everything revealed afterwards
+  arrived unfiltered, which on a feed where 42 of 64 children are hidden at
+  any moment is nearly all of it.
+
+  An `IntersectionObserver` on the feed's children notices the reveal. It
+  polls nothing and stays silent while the page is still — unlike a scroll
+  handler, which is the shape of the 1.1.35 freeze. An 800px root margin means
+  a post is scanned while still below the fold, so it is hidden before it is
+  seen rather than flashing into view.
+
+  The feed element is recorded as a side effect of a successful climb, since
+  that is the only code that knows which container is the feed. A second,
+  `childList`-only observer on the feed itself picks up children appended as
+  you page further down — a handful of callbacks per page, not one per
+  mutation inside every post.
+
+- The diagnostics panel now reports whether a feed is being watched and how
+  many children are under observation. "not identified" there means no reveals
+  are being seen at all, which is the first thing to check if mobile filters
+  nothing.
+
+### Still unverified
+
+Whether this actually filters a real phone feed. Every mobile release since
+1.1.39 was declared working on the strength of a spoofed desktop viewport that
+does not virtualise, and none of them worked. This one is a hypothesis with a
+mechanism behind it, and it stays that until it has been scrolled a long way on
+a real device with the diagnostics panel read.
+
 ## 1.1.44
 
 ### Fixed

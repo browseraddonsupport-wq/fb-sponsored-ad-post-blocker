@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "F.B. Sponsored/Ad Post Blocker",
-  "version": "1.1.44",
+  "version": "1.1.45",
   "description": "Hides sponsored ads, \"Suggested for You\" posts, and posts from Pages/Groups you don't follow, from your Facebook feed.",
   "icons": {
     "48": "icons/icon.svg",
