@@ -108,7 +108,7 @@ async function showDiagnostics(tabId) {
     `v${d.version}  ${d.layout}  viewport ${d.viewport}`,
     `body: ${d.bodyClass || "(none)"}`,
     `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
-    `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}`,
+    `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];

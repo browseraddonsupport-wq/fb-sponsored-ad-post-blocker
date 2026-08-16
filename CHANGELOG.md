@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.47
+
+### Fixed
+
+- **The mobile feed was slow to catch up, and it was the extension's fault.**
+  Confirmed by control test: with the extension disabled the same feed loaded
+  quickly and normally.
+
+  A label whose post Facebook hasn't rendered gets deferred to the reveal
+  observer — but it was *also* being queued into the retry loop, which
+  re-examines every entry every 50ms for a full 8 seconds. Those retries can
+  never succeed: the candidate has no box and won't get one until Facebook
+  reveals it, at which point the IntersectionObserver handles it anyway. On a
+  virtualised feed most sponsored labels take that path, so the queue filled
+  with work that was guaranteed to be wasted.
+
+  This is the 1.1.35 regression's shape reached from a different direction — a
+  flooded retry queue burning the 50ms loop — and the same lesson applies:
+  queue only what can actually resolve later. Deferred labels are now left to
+  the reveal observer, which is already waiting for exactly the event that
+  would make them resolvable.
+
+  `unfollowed` labels were already excluded on the same reasoning. This extends
+  it to the case virtualisation creates.
+
+- The diagnostics panel reports `reveals` — how many scans the reveal path has
+  triggered. It should track how far you have scrolled; climbing while the page
+  is still means the observer is firing when it shouldn't.
+
 ## 1.1.46
 
 ### Fixed

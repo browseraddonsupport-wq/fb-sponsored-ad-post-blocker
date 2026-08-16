@@ -395,6 +395,10 @@ const REVEAL_MARGIN = "800px";
 let mobileFeed = null;
 let revealObserver = null;
 let feedChildObserver = null;
+// How many scans the reveal path has triggered. Cheap, and the number to look
+// at first if mobile feels slow: it should track how far you have scrolled,
+// not climb while the page is still.
+let revealScans = 0;
 
 function observeFeedChildren() {
   if (!mobileFeed || !revealObserver) return;
@@ -411,7 +415,9 @@ function noteMobileFeed(feed) {
     revealObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) scheduleScan(entry.target);
+          if (!entry.isIntersecting) continue;
+          revealScans += 1;
+          scheduleScan(entry.target);
         }
       },
       { rootMargin: REVEAL_MARGIN }
@@ -771,15 +777,18 @@ function processLabel(label) {
   if (DEBUG) stats.matched[reason] = (stats.matched[reason] || 0) + 1;
   noteLabelClassified();
 
-  // Cleared before the attempt so it can only describe this one.
+  // Cleared before the attempt so it can only describe this one, and read
+  // immediately after: resolveViaReferrer below re-enters processLabel and
+  // would otherwise overwrite it.
   deferredUnrendered = false;
   const resolved = tryHideFromLabel(label, reason);
+  const deferred = deferredUnrendered;
   if (resolved) {
     if (DEBUG) stats.hidden += 1;
     noteLabelAnchored();
     return;
   }
-  noteLabelUnresolved();
+  noteLabelUnresolved(deferred);
 
   // A label that classifies but can't be anchored may still be a portal span
   // that simply sits deeper than the shallow check's threshold — Facebook
@@ -798,6 +807,16 @@ function processLabel(label) {
   // rejected deliberately, not provisionally. Queueing those just burns the
   // 50ms loop for 8s each.
   if (reason === "unfollowed") return;
+
+  // Nor a label whose post Facebook simply hasn't rendered. Retrying cannot
+  // succeed — the candidate has no box and will not get one until Facebook
+  // reveals it, which the IntersectionObserver is already waiting for. On a
+  // virtualised feed most sponsored labels land here, so queueing them floods
+  // the retry loop with entries that are re-examined every 50ms for the full
+  // 8s window and can never resolve. That is the 1.1.35 regression's shape,
+  // arrived at from a different direction, and it is what made the mobile feed
+  // slow to catch up while a disabled extension loaded normally.
+  if (deferred) return;
 
   if (!pendingLabels.has(label) && pendingLabels.size < MAX_PENDING_LABELS) {
     pendingLabels.set(label, Date.now());
@@ -853,8 +872,8 @@ function noteLabelClassified() {
 //
 // Anchoring even one label settles the question for this page — a feed where
 // some posts resolve and others don't is ordinary, and not what this looks for.
-function noteLabelUnresolved() {
-  if (deferredUnrendered) {
+function noteLabelUnresolved(deferred) {
+  if (deferred) {
     labelsDeferred += 1;
     return;
   }
@@ -951,6 +970,7 @@ function buildDiagnostics() {
     // retried when the reveal observer sees them — a large number here beside a
     // healthy anchored count is the system working, not failing.
     deferred: labelsDeferred,
+    reveals: revealScans,
     hidden: hiddenPosts.size,
     pending: pendingLabels.size,
     thresholds: `kids>=${MOBILE_FEED_MIN_CHILDREN} width>=${MOBILE_MIN_WIDTH_RATIO}`,
