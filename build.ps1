@@ -107,6 +107,27 @@ Write-Utf8NoBom (Join-Path $cr "manifest.json") ($chromeManifest | ConvertTo-Jso
 
 New-Zip $cr (Join-Path $root "fb-sponsored-ad-post-blocker-chrome$suffix.zip")
 
+# Chromium cannot decode SVG icons: a Firefox package uploaded to the Chrome
+# Web Store is rejected with "Could not decode image: 'icon.svg'", which is how
+# this check came to exist. The packages differ by one word in the filename and
+# sit in the same folder, so the mistake is easy and the error message does not
+# obviously say "you uploaded the wrong file".
+function Assert-NoSvgIcons($dir, $label) {
+    $manifest = Get-Content (Join-Path $dir "manifest.json") -Raw | ConvertFrom-Json
+    $refs = @()
+    foreach ($set in @($manifest.icons, $manifest.action.default_icon)) {
+        if ($set) { $refs += $set.PSObject.Properties.Value }
+    }
+    $svg = $refs | Where-Object { $_ -like "*.svg" }
+    if ($svg) { throw "$label package references an SVG icon ($($svg -join ', ')) - Chromium cannot decode these" }
+    if (Get-ChildItem $dir -Recurse -Filter "*.svg" -File) {
+        throw "$label package ships an .svg file - Chromium cannot decode these"
+    }
+}
+Assert-NoSvgIcons $cr "chrome"
+
 Write-Output "built $version$(if ($Diagnostic) { ' (DEBUG enabled)' })"
-Write-Output "  firefox -> fb-sponsored-ad-post-blocker$suffix.zip   (dist/firefox)"
-Write-Output "  chrome  -> fb-sponsored-ad-post-blocker-chrome$suffix.zip   (dist/chrome)"
+Write-Output "  AMO / Firefox      -> fb-sponsored-ad-post-blocker$suffix.zip   (dist/firefox)"
+Write-Output "  Chrome Web Store   -> fb-sponsored-ad-post-blocker-chrome$suffix.zip   (dist/chrome)"
+Write-Output "  Upload the -chrome zip to the Chrome Web Store. The other one has an SVG"
+Write-Output "  icon and Chromium rejects it with 'Could not decode image: icon.svg'."
