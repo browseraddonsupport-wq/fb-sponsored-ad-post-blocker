@@ -1034,6 +1034,10 @@ function buildDiagnostics() {
   const mobile = isMobileLayout();
   return {
     version: browser.runtime.getManifest().version,
+    // "pending"/"waiting for <body>" here means startup never completed, which
+    // is invisible from the page: the popup still answers because its listener
+    // registers before the observer is attached.
+    boot: bootState,
     layout: mobile ? "mobile" : "desktop",
     bodyClass: mobile ? MOBILE_BODY_CLASS : (document.body.className || "").toString().slice(0, 60),
     viewport: `${window.innerWidth}x${window.innerHeight}`,
@@ -1365,9 +1369,40 @@ const observer = new MutationObserver((mutations) => {
 // milliseconds; the alternative was every ad staying visible for that same
 // window, every page load. Defaults hide all three, so for anyone who hasn't
 // changed them there is nothing to undo.
-observer.observe(document.body, { childList: true, subtree: true });
-cacheLabelTargets(document.body);
-scanRoot(document.body);
+// document.body can be null here, despite run_at: "document_idle". Observed on
+// facebook.com in Firefox: the script ran, this line threw
+//
+//   TypeError: MutationObserver.observe: Argument 1 is not an object
+//
+// and module evaluation stopped dead. The observer never attached, the initial
+// scan never ran and main() never executed - while the message listener
+// registered further up kept answering, so the popup looked healthy and the
+// extension hid nothing at all. The diagnostics panel read "0 scans, 0 observer
+// calls" for minutes on a live feed, which is what finally gave it away.
+//
+// Never assume the body is there. If it is missing, watch for it.
+let bootState = "pending";
+
+function startObserving() {
+  observer.observe(document.body, { childList: true, subtree: true });
+  cacheLabelTargets(document.body);
+  scanRoot(document.body);
+  bootState = "running";
+}
+
+if (document.body) {
+  startObserving();
+} else {
+  bootState = "waiting for <body>";
+  const bootObserver = new MutationObserver(() => {
+    if (!document.body) return;
+    bootObserver.disconnect();
+    startObserving();
+  });
+  // documentElement always exists by the time a content script runs; it is the
+  // node body is appended to.
+  bootObserver.observe(document.documentElement, { childList: true, subtree: true });
+}
 
 // --- Settings sync + bootstrap ---------------------------------------------
 
@@ -1400,7 +1435,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     settings.placeholderMode = changes.placeholderMode.newValue;
   }
 
-  if (shouldRescan) scanRoot(document.body);
+  if (shouldRescan && document.body) scanRoot(document.body);
 });
 
 (async function main() {
@@ -1431,6 +1466,6 @@ browser.storage.onChanged.addListener((changes, area) => {
   // on every page load for no effect.
   if (settings.placeholderMode !== DEFAULT_SETTINGS.placeholderMode) {
     for (const container of Array.from(hiddenPosts.keys())) restorePost(container);
-    scanRoot(document.body);
+    if (document.body) scanRoot(document.body);
   }
 })();

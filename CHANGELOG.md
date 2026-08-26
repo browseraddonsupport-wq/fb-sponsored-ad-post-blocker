@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.51
+
+### Fixed
+
+- **The extension silently did nothing on desktop.** `document.body` was null
+  when the content script ran, so this line threw:
+
+  ```
+  TypeError: MutationObserver.observe: Argument 1 is not an object
+      content.js:1368
+  ```
+
+  Module evaluation stopped there. The observer never attached, the initial
+  scan never ran, and `main()` never executed — but the message listener
+  registers earlier in the file, so the popup kept answering and the extension
+  looked completely healthy. Settings on, permission granted, no visible error,
+  four sponsored posts sitting in the feed untouched.
+
+  `run_at: "document_idle"` is supposed to guarantee a body exists. On
+  facebook.com in Firefox it does not, at least sometimes. The startup now
+  waits for `<body>` to appear instead of assuming it, watching
+  `document.documentElement` until it does.
+
+  Verified before and after against a harness with `document.body` forced to
+  null: the previous build throws, this one starts clean and completes once a
+  body appears.
+
+- The diagnostics panel reports a `BOOT:` line whenever startup has not
+  completed. This failure was invisible from the page and from the Browser
+  Console — it only surfaced in the *page* console — and the panel showing
+  "0 scans, 0 observer calls" after 147 seconds on a live feed is what led to
+  it. Now it says so directly.
+
+### Note
+
+Nothing was wrong with detection. Facebook had not changed anything: the
+labels, `aria-labelledby` portal spans and `aria-posinset` anchors were all
+present and would have resolved normally.
+
 ## 1.1.50
 
 ### Fixed

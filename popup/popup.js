@@ -113,6 +113,10 @@ async function showDiagnostics(tabId) {
     `feed: ${d.feed || "n/a"}`,
   ];
 
+  // Anything other than "running" means startup never finished, and nothing
+  // above it means much - the counts would all read zero for that reason alone.
+  if (d.boot && d.boot !== "running") lines.splice(1, 0, `BOOT: ${d.boot}`);
+
   // The three costs that can make a page feel slow, kept apart because they
   // fail for different reasons and 1.1.35 proved a healthy scan figure says
   // nothing about the other two. The share of wall-clock time is the number
