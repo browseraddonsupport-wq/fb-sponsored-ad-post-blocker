@@ -35,6 +35,18 @@
   this way. Non-zero confirms the path is live; zero on a feed with ads means
   they are being built some other way.
 
+### Not yet observed in the wild
+
+The first live run after shipping this reported `late-text labels: 0` while the
+extension was otherwise healthy (`matched 26, anchored 26`, 11 hidden). So the
+two-step insertion did **not** occur on that page load, and this fix cannot be
+credited with restoring filtering — 1.1.51's startup fix is the likelier cause,
+with the recurrence being that race landing badly once.
+
+The gap is real and proven in a harness. Whether it happens on Facebook is
+open. If ads reappear while this counter stays at zero, the mechanism is
+something else and the diagnosis behind this release was wrong.
+
 ### Note
 
 This is why the DOM probes disagreed with each other all session. Of 128 labels
