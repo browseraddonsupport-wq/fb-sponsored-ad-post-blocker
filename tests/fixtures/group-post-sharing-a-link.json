@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD for the widened permalink veto. A group post's self-link is /groups/<id>/posts/..., and a local buy-and-sell post's is /commerce/listing/... - neither is /posts/ on a profile. Before 1.1.71 the veto knew only the profile shape, so a group post sharing a link matched the ad rule exactly.",
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><a href=\"/groups/111111111111111/\">Local Buy and Sell</a><span>&middot;</span><a href=\"/commerce/listing/1000000001\">2h</a></div><span>for sale</span><a href=\"/l.php?u=https%3A%2F%2Fshop.example\"><span>shop.example</span></a></div></div></div>"
+}
