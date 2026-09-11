@@ -821,7 +821,49 @@ function hiddenContainerFor(node) {
   return parent && hiddenPosts.has(parent) ? parent : null;
 }
 
-function hidePost(container, reason, label) {
+// Last line of defence for the same bug. Whatever route chose this element, if
+// it is feed-post width then the thing the user wants gone is the whole card,
+// never a block inside it - so walk up until the next step would leave the
+// card. Cheap, and it holds even if a climb elsewhere stops short again.
+function expandToCard(node) {
+  if (isMobileLayout()) return node;
+  const r = node.getBoundingClientRect();
+  // Feed cards only. The right-hand rail is 360 wide and stacks several
+  // modules with no card-width child between them, so this would climb out of
+  // one ad and take the whole column.
+  if (r.width < FEED_POST_MIN_WIDTH || r.width > FEED_POST_MAX_WIDTH) return node;
+
+  let best = node;
+  for (let i = 0; i < SHAPE_MAX_CLIMB; i++) {
+    const parent = best.parentElement;
+    if (!parent || parent === document.body) break;
+    const br = best.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    if (pr.width > FEED_POST_MAX_WIDTH) break;
+    if (pr.width > br.width * DESKTOP_CARD_WIDTH_JUMP) break;
+    if (pr.height > UNHIDDEN_MAX_HEIGHT) break;
+    if (holdsSeveralCards(parent)) break;
+    // holdsSeveralCards measures boxes, and a post we have already hidden has
+    // no box - so a feed column whose other posts are all hidden looks exactly
+    // like a single card, and the climb would take the entire feed. Ask
+    // whether the siblings are posts rather than whether they are visible.
+    if (hasHiddenSibling(parent, best)) break;
+    best = parent;
+  }
+  return best;
+}
+
+function hasHiddenSibling(parent, self) {
+  for (const child of parent.children) {
+    if (child === self) continue;
+    if (child.hasAttribute("data-fbsb-hidden")) return true;
+    if (child.querySelector("[data-fbsb-hidden]")) return true;
+  }
+  return false;
+}
+
+function hidePost(container, reason, label, via) {
+  if (isPostReason(reason)) container = expandToCard(container);
   const originalDisplay = container.style.display || "";
   let placeholder = null;
 
@@ -849,7 +891,7 @@ function hidePost(container, reason, label) {
   }
 
   // Before the hide, while the element still has dimensions to report.
-  noteHiddenSample(container, reason);
+  noteHiddenSample(container, reason, via || "label");
 
   const hide = applyHide(container);
   hide.marker.dataset.fbsbHidden = reason;
@@ -1171,7 +1213,7 @@ function describeNode(el) {
 // wrapper holding the space", which on a feed looks like a gap you scroll past.
 const DIAG_CHAIN_DEPTH = 4;
 
-function noteHiddenSample(container, reason) {
+function noteHiddenSample(container, reason, via) {
   if (diagSamples.length >= DIAG_SAMPLE_LIMIT) return;
   const chain = [];
   let n = container;
@@ -1179,7 +1221,10 @@ function noteHiddenSample(container, reason) {
     chain.push(describeNode(n));
     n = n.parentElement;
   }
-  diagSamples.push({ reason, chain });
+  // Which rule chose this element. Both routes report "sponsored", so a
+  // partial hide looked identical whichever produced it, and telling them
+  // apart took a screenshot and a guess.
+  diagSamples.push({ reason, via, chain });
 }
 
 // What does a post we FAILED to hide actually look like? Every attempt to
@@ -1792,10 +1837,20 @@ function holdsSeveralCards(el) {
 // it. Starting from those rather than from every <div> is what makes a repeated
 // document-wide sweep affordable: a feed holds a handful of them and thousands
 // of divs, and only they can satisfy the rule.
+// Fourteen levels was nowhere near enough. Facebook nests a call-to-action
+// block twenty-odd elements below the card, so a climb starting at an outbound
+// link ran out of steps partway up and kept whatever fitted on the way - the
+// media block. That is the "image gone, text and reactions still there" bug:
+// Goose Creek and Wayfair by screenshot, and Great Rail Journeys straight from
+// the panel, which listed the same card under HIDDEN BY SHAPE *and* under NOT
+// HIDDEN. The fixtures never caught it because a fixture card is four levels
+// deep and a real one is not.
+const SHAPE_MAX_CLIMB = 30;
+
 function cardFromLabelRef(el) {
   let node = el;
   let best = null;
-  for (let i = 0; i < DESKTOP_CARD_MAX_CLIMB; i++) {
+  for (let i = 0; i < SHAPE_MAX_CLIMB; i++) {
     const parent = node.parentElement;
     if (!parent || parent === document.body) break;
     const r = node.getBoundingClientRect();
@@ -1899,7 +1954,7 @@ function sweepUnlabeledAds(root) {
     if (!looksLikePost(card)) return;
     unlabeledAdsHidden += 1;
     if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));
-    hidePost(card, "sponsored", card);
+    hidePost(card, "sponsored", card, "shape");
   };
 
   for (const scope of scopes) {
