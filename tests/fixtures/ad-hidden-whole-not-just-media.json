@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "REGRESSION GUARD. Screenshot 2026-09-11: a Goose Creek ad with its image gone and the byline, text and reaction counts still sitting there. The climb had stopped at the media block, because the card is much taller than the block the outbound link sits in and the height-jump rule read that as leaving the card. The whole post must go, not the picture out of it.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:900px\"><div><a href=\"/goosecreekcandle\">Goose Creek</a><span>&middot;</span><span><span></span></span></div><span>Every Goose Creek candle is designed to fill large spaces with bold, long-lasting aroma.</span><div style=\"width:680px;height:420px\"><a href=\"https://www.goosecreekcandle.com/sale\"><span>GOOSECREEKCANDLE.COM</span><span>Shop now</span></a></div><span>7.8K</span><span>563</span></div></div></div>"
+}
