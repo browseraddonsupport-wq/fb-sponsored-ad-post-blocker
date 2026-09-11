@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.56
+
+### Added
+
+- **The unhidden-card report now shows how a label could be reached, not just
+  what text is present.** Two ad cards in a row reported this shape:
+
+  ```
+  #2 680x837 cls=x1lliihq
+     span:"fairlife" span:"·" a:"#fairlifepartner" span:"FAIRLIFE.COM"
+  ```
+
+  Note the `span:"·"` — the separator that sits *after* "Ad" in Facebook's
+  byline — with no "Ad" text anywhere on the card. Different advertisers, same
+  absence, so on these cards the label is not rendered text and the panel had
+  no way to say what it actually is.
+
+  Each card now also reports the three remaining mechanisms by which "Ad" could
+  be carried: `<use>` sprite references and what they resolve to,
+  `aria-labelledby` targets (falling back to the label cache when Facebook has
+  already deleted the span), and plain `aria-label` values. Example from a
+  harness card with no "Ad" text at all:
+
+  ```
+  evidence: by#lbl1->"Ad" aria:"Sponsored content"
+  ```
+
+  Whichever line carries "Ad" is what detection has to read.
+
+### Why a sixth release without a fix
+
+Because every fix since 1.1.51 was chosen from a console probe, and probes race
+a DOM that deleted 125 of 128 label nodes in 40 seconds. Three of them looked
+right and none landed. This reports from inside the content script, against the
+same document the scan sees, and it costs nothing until the panel is opened.
+
 ## 1.1.55
 
 ### Fixed

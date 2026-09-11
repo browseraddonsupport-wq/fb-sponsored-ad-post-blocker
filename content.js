@@ -1077,6 +1077,38 @@ function sampleUnhiddenPosts() {
       seenText.add(t);
       labels.push(`${leaf.tagName.toLowerCase()}:"${t}"`);
     }
+    // Two ad cards in a row reported a span:"·" - the separator that follows
+    // "Ad" in Facebook's byline - with no "Ad" text anywhere. So on those cards
+    // the label is drawn some non-textual way, and the panel could not say
+    // which. These three lines cover every remaining mechanism: a sprite
+    // reference, an accessible name pointing elsewhere, and a plain aria-label.
+    // Whichever one carries "Ad" is the thing detection has to read.
+    const evidence = [];
+    for (const u of el.querySelectorAll("use")) {
+      if (evidence.length >= 6) break;
+      const href = u.getAttribute("xlink:href") || u.getAttribute("href") || "";
+      if (!href.startsWith("#")) continue;
+      const target = document.getElementById(href.slice(1));
+      const text = target ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim() : "";
+      if (text && text.length <= 25) evidence.push(`use${href}->"${text}"`);
+    }
+    for (const e of el.querySelectorAll("[aria-labelledby]")) {
+      if (evidence.length >= 10) break;
+      for (const id of (e.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+        if (!id) continue;
+        const target = document.getElementById(id);
+        const text = target
+          ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
+          : labelTextById.get(id);
+        if (text && text.length <= 25) evidence.push(`by#${id}->"${text}"`);
+      }
+    }
+    for (const e of el.querySelectorAll("[aria-label]")) {
+      if (evidence.length >= 14) break;
+      const a = e.getAttribute("aria-label");
+      if (a && a.length <= 30) evidence.push(`aria:"${a}"`);
+    }
+
     // closest(), not getAttribute(): the landmark is rarely on the outermost
     // div of a card, and reporting only that div's own attributes made every
     // card look landmark-less - including ones the extension anchors fine.
@@ -1088,6 +1120,7 @@ function sampleUnhiddenPosts() {
       posinset: near("[aria-posinset]"),
       pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
+      evidence: [...new Set(evidence)].slice(0, 10),
     });
   }
   return out;
