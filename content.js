@@ -1164,6 +1164,13 @@ function noteHiddenSample(container, reason) {
 const UNHIDDEN_SAMPLE_LIMIT = 4;
 const UNHIDDEN_MIN_HEIGHT = 200;
 const UNHIDDEN_MIN_WIDTH = 300;
+// A feed card is about 680 wide on this layout and a few hundred tall. Without
+// an upper bound the outermost-wins rule below selects the entire feed column -
+// full page width, thousands of pixels tall - which contains every card, so
+// they all get filtered out as nested inside it. The first survey reported
+// "feed cards on page: 1" for exactly that reason.
+const UNHIDDEN_MAX_WIDTH = 900;
+const UNHIDDEN_MAX_HEIGHT = 1800;
 
 // Counted across the WHOLE feed, not just what is on screen. The first version
 // of this restricted itself to the viewport and reported three cards, which
@@ -1175,6 +1182,7 @@ function surveyFeedCards() {
   for (const el of document.querySelectorAll("div")) {
     const r = el.getBoundingClientRect();
     if (r.height < UNHIDDEN_MIN_HEIGHT || r.width < UNHIDDEN_MIN_WIDTH) continue;
+    if (r.height > UNHIDDEN_MAX_HEIGHT || r.width > UNHIDDEN_MAX_WIDTH) continue;
     candidates.push(el);
   }
   // Keep only the outermost of each nested run, so one card counts once.

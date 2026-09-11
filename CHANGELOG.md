@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.67
+
+### Fixed
+
+- **The whole-feed survey added in 1.1.66 reported one card.** It keeps only the
+  outermost of each nested run, and with the viewport restriction removed the
+  outermost qualifying element is the **entire feed column** — full page width,
+  thousands of pixels tall — which contains every card, so all of them were
+  discarded as nested inside it. Since it contained hidden posts, the one
+  "card" counted as hidden, and the panel read:
+
+  ```
+  feed cards on page: 1   hidden by us: 1   not hidden: 0
+  ```
+
+  on a page full of ads.
+
+  Candidates are now bounded above as well as below: a feed card is about 680
+  wide and a few hundred tall, so anything wider than 900 or taller than 1800 is
+  a container rather than a card.
+
+  Verified against a simulated feed column holding six cards, two of them
+  marked hidden: reports 6 / 2 / 4.
+
+### Note
+
+Three instrument bugs in a row now — viewport-only scope, then this, after the
+leaf-only blind spot earlier. Each produced a confidently wrong reading. The
+lesson is the same one the fixtures taught: a diagnostic needs its own test
+before its output is trusted, and the survey now has one.
+
 ## 1.1.66
 
 ### Fixed
