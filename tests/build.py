@@ -151,6 +151,23 @@ CONTENT_JS
     cacheLabelTargets(host);
     scanRoot(host);
 
+    // The card was fine when we first saw it, and became an ad afterwards.
+    // This is the ordering the live page actually runs and the one 1.1.70 got
+    // wrong: a card is inserted with its byline label live, so the shape rule
+    // correctly declines to hide it, and Facebook deletes that label a beat
+    // later in a mutation whose target is no longer inside the card. Scanning
+    // an UNRELATED root here is the point - if the fix only re-checked the
+    // subtree that changed, it would still miss this, which is precisely how
+    // the bug survived a passing suite.
+    if (f.danglingAfterScan) {
+      var late = host.querySelector("[data-late-ref]");
+      if (late) late.setAttribute("aria-labelledby", late.getAttribute("data-late-ref"));
+      lastSweepAt = 0; // the 500ms throttle is a cost control, not behaviour
+      var elsewhere = document.createElement("div");
+      document.body.appendChild(elsewhere);
+      scanRoot(elsewhere);
+    }
+
     // Let the observer and the rAF-coalesced scan run, as they would live.
     setTimeout(function () {
       var card = host.querySelector("[style*='width:680px']") || host.firstElementChild;

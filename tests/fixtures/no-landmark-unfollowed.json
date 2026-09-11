@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "A Page you don't follow, on a card with no landmark at all - article, pagelet and posinset all absent. Observed live 2026-09-11 as a reel sitting unhidden with a Follow button beside the poster's name. Until 1.1.71 the landmark-less climb refused to run for this reason and the post stayed visible.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><h2>Some Page</h2><span>&middot;</span><div role=\"button\">Follow</div></div><span>Sep 10</span><span>Watch this</span></div></div></div>"
+}

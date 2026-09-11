@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.71
+
+Three reasons ads and unfollowed posts stayed visible in 1.1.70, all three
+found by reading the diagnostics panel from a live feed rather than by
+guessing. The panel reported 16 posts hidden and 15 still showing.
+
+### Fixed
+
+- **Cards were judged once, at the only moment they could not qualify.** The
+  shape rule ran only over the subtree a mutation had just touched. A card is
+  inserted while its byline label is still live, so the rule correctly declines
+  to hide it — and Facebook deletes that label a beat later, in a mutation
+  whose target is no longer inside the card. Nothing looked at it again. The
+  panel showed this exactly: `by-shape 14`, and an ad reporting a missing
+  byline reference with no permalink sitting visible.
+
+  The sweep now re-checks the whole document twice a second, starting from the
+  label references rather than from every `<div>` — a feed holds a handful of
+  the former and thousands of the latter, which is what makes repeating it
+  affordable.
+
+- **"Follow" was never examined on desktop.** It is a `<div>`, and the scan
+  looked at spans, links and labelled elements only. The panel had been
+  printing `div:"Follow"` inside cards that stayed visible. Elements with
+  `role="button"` are now scanned too.
+
+- **Posts with no landmark could not be hidden as unfollowed.** Where a card
+  carries no `role="article"`, no pagelet and no `aria-posinset` ancestor,
+  every route to the post returned nothing, and the one remaining route
+  refused to run for this reason — a stray Follow button inside a quoted post
+  could have taken out the whole card. It now runs, with the check that was
+  missing: the button must sit at the card's own author level, not inside
+  something the post quotes.
+
+### Verified
+
+21 fixtures, seven of them false-positive guards. Two are new: a friend's post
+quoting a Page you don't follow, which must survive that page's Follow button,
+and a card that is only identifiable after the scan that first saw it. The
+first of those caught a genuine regression in this change before it shipped —
+an earlier version of the author-level test hid the quoted post.
+
 ## 1.1.70
 
 ### Added

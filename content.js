@@ -409,10 +409,30 @@ function climbToChildOf(label, landmark) {
 // first heading errs toward leaving posts visible, which is the right way to
 // be wrong: a missed unfollowed post is an annoyance, a wrongly hidden group
 // post is content you never learn you lost.
+//
+// Not every card has a heading. Facebook renders plenty of feed posts - reels
+// and video cards especially - with the author's name in a plain span, and
+// requiring a heading meant those could never qualify, so an obvious "Follow"
+// button beside the poster's name anchored nowhere. For those, fall back to
+// the same rule the mobile climb uses: the card's own author header is its
+// first child subtree, and anything quoted inside it comes later.
 function isAuthorLevelLabel(label, container) {
-  const heading = label.closest("h1, h2, h3, h4, h5, h6");
-  if (!heading) return false;
-  return heading === container.querySelector("h1, h2, h3, h4, h5, h6");
+  // The header row, which holds the name and the button side by side. Testing
+  // the heading alone was too strict in both directions: on a real card the
+  // Follow button is a *sibling* of the <h2>, not inside it, and on a reel
+  // there is no heading at all.
+  //
+  // Descend through single-child wrappers before taking the first child.
+  // Without that step the rule is worthless whenever the container is a
+  // landmark wrapping one div wrapping the card: "the first child" is then the
+  // whole post, so a quoted page's Follow button sits inside it and takes the
+  // post out. The fixture guarding that case caught it before it shipped.
+  let body = container;
+  while (body.children.length === 1) body = body.children[0];
+  const first = body.firstElementChild;
+  if (first && first !== label && first.contains(label)) return true;
+  const firstHeading = container.querySelector("h1, h2, h3, h4, h5, h6");
+  return !!firstHeading && label.closest("h1, h2, h3, h4, h5, h6") === firstHeading;
 }
 
 // Facebook's mobile web renderer ("weblite" — it tags <body> with
@@ -655,13 +675,19 @@ function findPostContainer(label, reason) {
   // width (680 on this layout) while the column is far wider, so that jump is
   // the boundary.
   //
-  // Deliberately not applied to "unfollowed": a stray Follow button anywhere
-  // inside a card would take the whole card out, and with no landmark to
-  // confirm the label belongs to the post's own author there is nothing left
-  // to check it against. Same reasoning as the complementary rail above.
-  if (reason !== "unfollowed") {
-    const card = climbToCard(label);
-    if (card) return card;
+  // 1.1.70 and earlier refused this route for "unfollowed" outright, on the
+  // grounds that a stray Follow button inside a quoted post would take out the
+  // whole card. The check that was missing is the one the mobile climb has
+  // always applied: require the button to sit at the card's own author level.
+  // Observed unhidden 2026-09-11 - a reel from a Page, with a Follow button
+  // beside the poster's name, reporting article=- pagelet=- and its
+  // aria-posinset as a descendant, so every landmark route above returned null
+  // and the one remaining route declined to look.
+  if (reason === "unfollowed" && label.closest('[role="complementary"]')) return null;
+  const card = climbToCard(label);
+  if (card) {
+    if (reason === "unfollowed" && !isAuthorLevelLabel(label, card)) return null;
+    return card;
   }
 
   return null;
@@ -1587,7 +1613,12 @@ function cacheLabelTargets(node) {
 //
 // Cheap to add: SVG text nodes are rare next to spans, and the selector is
 // evaluated once per scanned subtree rather than per element.
-const LABEL_SELECTOR = "span, a, use, text, [aria-label], [aria-labelledby]";
+// [role="button"] added 1.1.71. On desktop the Follow button is a <div>, not a
+// span, so "Follow" was never even examined there - the diagnostics panel had
+// been printing div:"Follow" inside cards that stayed visible for months. Only
+// the role is matched, not every div: it keeps the added cost proportional to
+// the page's controls rather than to its markup.
+const LABEL_SELECTOR = 'span, a, use, text, [aria-label], [aria-labelledby], [role="button"]';
 
 // Self-instrumentation. Whether this extension is what's stalling the feed is
 // answerable with numbers rather than argument, and a synthetic page doesn't
@@ -1645,16 +1676,14 @@ function reportStats(now) {
 // the popup as something that may occasionally hide a real post.
 const PERMALINK_RE = /\/(posts|permalink|videos|photo|reel|watch)([\/?]|$)/;
 
-function hasDanglingByline(card) {
-  for (const el of card.querySelectorAll("[aria-labelledby]")) {
-    for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
-      if (!id) continue;
-      const target = document.getElementById(id);
-      const text = target
-        ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-        : labelTextById.get(id);
-      if (!text) return true;
-    }
+function isDanglingRef(el) {
+  for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+    if (!id) continue;
+    const target = document.getElementById(id);
+    const text = target
+      ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
+      : labelTextById.get(id);
+    if (!text) return true;
   }
   return false;
 }
@@ -1674,23 +1703,81 @@ function hasPermalink(card) {
   return false;
 }
 
+// A jump in either dimension means the climb has left the card. Width alone is
+// not enough: on the layout measured 2026-09-11 the feed column is itself 680
+// wide, and only its height (5143px, twelve children) told it apart from the
+// 680x862 card inside it.
+const CARD_HEIGHT_JUMP = 1.6;
+
+// Climb from a dangling label reference to the card holding it. Starting from
+// the reference rather than from every <div> is what makes a repeated
+// document-wide sweep affordable: a feed holds a handful of aria-labelledby
+// elements and thousands of divs, and only the former can satisfy the rule.
+function cardFromLabelRef(el) {
+  let node = el;
+  let best = null;
+  for (let i = 0; i < DESKTOP_CARD_MAX_CLIMB; i++) {
+    const parent = node.parentElement;
+    if (!parent || parent === document.body) break;
+    const r = node.getBoundingClientRect();
+    if (
+      r.width >= FEED_POST_MIN_WIDTH && r.width <= FEED_POST_MAX_WIDTH &&
+      r.height >= FEED_POST_MIN_HEIGHT && r.height <= UNHIDDEN_MAX_HEIGHT
+    ) {
+      best = node;
+      const pr = parent.getBoundingClientRect();
+      if (pr.width > r.width * DESKTOP_CARD_WIDTH_JUMP) break;
+      if (pr.height > r.height * CARD_HEIGHT_JUMP) break;
+    }
+    node = parent;
+  }
+  return best;
+}
+
+// How often the whole document is re-checked. Until 1.1.71 the sweep ran only
+// over the subtree a mutation had touched, which measured every card at the one
+// moment it could not possibly qualify: when a card is inserted its byline
+// label is still live, and Facebook deletes that label a beat later in a
+// mutation whose target is no longer inside the card. So each card was tested
+// while its reference still resolved, went dangling, and was never looked at
+// again. That is exactly what the panel showed on 2026-09-11 - by-shape 14,
+// while a card reporting by#_r_122_->MISSING and no permalink sat visible.
+const SWEEP_INTERVAL_MS = 500;
+let lastSweepAt = 0;
+
 function sweepUnlabeledAds(root) {
   if (!settings.hideUnlabeledAds || !settings.hideSponsored) return;
   // Desktop only. The mobile feed is virtualised and its cards are governed by
   // rules measured separately - see MOBILE-VIRTUALISATION.md.
   if (isMobileLayout()) return;
-  if (!root.querySelectorAll) return;
 
-  for (const card of root.querySelectorAll("div")) {
-    const r = card.getBoundingClientRect();
-    if (r.width < FEED_POST_MIN_WIDTH || r.width > FEED_POST_MAX_WIDTH) continue;
-    if (r.height < FEED_POST_MIN_HEIGHT || r.height > UNHIDDEN_MAX_HEIGHT) continue;
-    if (hiddenPosts.has(card)) continue;
-    if (card.closest("[data-fbsb-hidden]")) continue;
-    if (!hasDanglingByline(card)) continue;
-    if (hasPermalink(card)) continue;
-    unlabeledAdsHidden += 1;
-    hidePost(card, "sponsored", card);
+  // The subtree that just changed, always - so a card that arrives already
+  // dangling is caught on the spot - plus the whole document on a timer, which
+  // is the part that catches a card going dangling after we first saw it.
+  const scopes = [];
+  if (root && root.querySelectorAll) scopes.push(root);
+  const now = performance.now();
+  if (now - lastSweepAt >= SWEEP_INTERVAL_MS && document.body) {
+    lastSweepAt = now;
+    scopes.push(document.body);
+  }
+
+  const seen = new Set();
+  for (const scope of scopes) {
+    for (const el of scope.querySelectorAll("[aria-labelledby]")) {
+      if (seen.has(el)) continue;
+      seen.add(el);
+      if (!isDanglingRef(el)) continue;
+      // Reels and the photo viewer render in a dialog, never a feed card.
+      if (el.closest('[role="dialog"]')) continue;
+      const card = cardFromLabelRef(el);
+      if (!card) continue;
+      if (hiddenPosts.has(card)) continue;
+      if (card.closest("[data-fbsb-hidden]")) continue;
+      if (hasPermalink(card)) continue;
+      unlabeledAdsHidden += 1;
+      hidePost(card, "sponsored", card);
+    }
   }
 }
 

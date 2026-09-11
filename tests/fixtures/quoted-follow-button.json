@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. A friend's post quoting a Page you don't follow carries that Page's Follow button. It is not in the card's header row and not in the card's first heading, so it must not take the whole post out - the reason the landmark-less climb was closed to 'unfollowed' in the first place.",
+  "card": "<div aria-posinset=\"1\"><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><h2>A Friend</h2><span>2h</span></div><span>look at this</span><div><div><h3>Some Page</h3><div role=\"button\">Follow</div></div></div></div></div></div>"
+}
