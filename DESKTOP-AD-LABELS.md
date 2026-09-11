@@ -39,10 +39,24 @@ the browser computes the accessible name.
 | CSS `::before` / `::after` content | `none` |
 | CSS `background-image` / `mask-image` | `none` |
 
+### data-ad-rendering-role: re-verified, still unusable
+
 `data-ad-rendering-role` is **not** usable, despite being all over these cards.
 See the warning in `classifyLabel`: it appears on ordinary posts too, because
 Facebook renders both through the same story template, and keying off it hides
-the entire feed. Verified the hard way.
+the entire feed.
+
+Re-checked on 2026-09-11, when ads whose label is absent from the DOM made this
+look like the only remaining option. A local buy-sell group post — "Oakland
+County, MI Sell…" — reported:
+
+```
+ad-roles=profile_name,story_message,meta,title   ad-preview=yes   ads/about=no
+```
+
+Not an ad. `data-ad-preview` and `data-ad-comet-preview` are no better — the
+same post carried those too. The warning stands; do not spend another session
+on it.
 
 ## Why probing is so unreliable here
 

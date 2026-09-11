@@ -269,6 +269,13 @@ function classifyLabel(el) {
   // Facebook renders both through the same story template — so keying off it
   // classifies the entire feed as sponsored and hides everything. Verified the
   // hard way; the attribute name is simply misleading.
+  //
+  // RE-VERIFIED 2026-09-11, after ads appeared whose label is not in the DOM at
+  // all and this looked like the only way left. A local buy-sell group post -
+  // "Oakland County, MI Sell..." - carried
+  // data-ad-rendering-role=profile_name,story_message,meta,title AND
+  // data-ad-preview. Still not an ad marker. data-ad-preview and
+  // data-ad-comet-preview are no better; the same post had those too.
 
   // Facebook now draws the byline label as vector art: an <svg><use> pointing
   // at a sprite <symbol> elsewhere in the document. There is no text in the
