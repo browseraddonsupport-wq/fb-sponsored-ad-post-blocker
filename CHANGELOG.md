@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.52
+
+### Fixed
+
+- **Ads whose label arrives in two steps were never hidden.** Facebook inserts
+  the label span empty and fills it a moment later:
+
+  ```html
+  <span id="_r_7bt_"></span>          <!-- inserted -->
+  <span id="_r_7bt_">Ad</span>        <!-- text arrives separately -->
+  ```
+
+  `rememberLabelTarget` reads `""` on insertion and bails, and the text that
+  follows is a **text node** — which the observer's `addedNodes` loop skipped
+  outright. The label was therefore never cached and the post never
+  re-examined, leaving the ad on screen with everything needed to hide it
+  present in the DOM.
+
+  Confirmed on a live desktop feed: a visible 781px sponsored post, its label
+  span present reading `"Ad"`, its referrer inside an `aria-posinset` and not
+  in a dialog — every condition for resolution satisfied, and not hidden.
+
+  Text nodes now complete their parent label instead of being dropped. Kept to
+  O(1): only a parent carrying an `id` and holding no element children can be
+  one of these spans, so it is a `textContent` read on a leaf plus a `Map` set,
+  not a subtree walk. `rememberLabelTarget` resolves forward from there, so no
+  extra scan is scheduled.
+
+  Verified before and after against a harness reproducing the two-step
+  insertion at realistic depth: 1.1.51 leaves the post visible, 1.1.52 hides it.
+
+- The diagnostics panel reports `late-text labels` — how many labels completed
+  this way. Non-zero confirms the path is live; zero on a feed with ads means
+  they are being built some other way.
+
+### Note
+
+This is why the DOM probes disagreed with each other all session. Of 128 labels
+recorded over 40 seconds on a live feed, **125 were removed by Facebook** before
+they could be examined again. Sampling with `querySelectorAll` catches an
+instant of that; only the observer sees the transitions.
+
 ## 1.1.51
 
 ### Fixed

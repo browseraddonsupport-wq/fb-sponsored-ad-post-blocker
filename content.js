@@ -1048,6 +1048,7 @@ function buildDiagnostics() {
     // healthy anchored count is the system working, not failing.
     deferred: labelsDeferred,
     reveals: revealScans,
+    lateText: lateTextLabels,
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -1181,6 +1182,10 @@ function ensureRetryLoopRunning() {
 // Bounded, oldest-first, because Facebook mints these continuously.
 const MAX_LABEL_CACHE = 200;
 const labelTextById = new Map();
+// How many labels completed via a late text node rather than arriving whole.
+// A non-zero count here is the path 1.1.52 added; zero on a feed with ads means
+// that is not how they are being built any more.
+let lateTextLabels = 0;
 
 function rememberLabelTarget(el) {
   if (!el.id) return;
@@ -1339,7 +1344,27 @@ const observer = new MutationObserver((mutations) => {
       }
     }
     for (const node of mutation.addedNodes) {
-      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        // An ad's label often completes in two steps: Facebook inserts
+        // <span id="_r_…_"> empty, then fills it a moment later. The span's
+        // insertion caches nothing, because rememberLabelTarget reads "" and
+        // bails — and the text arriving afterwards is a *text node*, which this
+        // loop used to skip. The label was therefore never cached and the post
+        // never re-examined, leaving the ad visible with everything needed to
+        // hide it sitting in the DOM. Observed on a live desktop feed: span
+        // present, text "Ad", referrer anchorable, and still not hidden.
+        //
+        // Kept to O(1): only a parent that carries an id and holds no elements
+        // can be one of these label spans, so this is a textContent read on a
+        // leaf plus a Map set, not a subtree walk. rememberLabelTarget resolves
+        // forward from there, so no scan needs scheduling.
+        const parent = node.parentElement;
+        if (parent && parent.id && parent.children.length === 0) {
+          lateTextLabels += 1;
+          rememberLabelTarget(parent);
+        }
+        continue;
+      }
       // Synchronously, before the node can be removed again: record any id →
       // text so an ephemeral label survives long enough to be useful. The
       // actual scanning still happens on the next frame.
