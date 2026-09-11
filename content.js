@@ -1171,6 +1171,10 @@ const UNHIDDEN_MIN_WIDTH = 300;
 // "feed cards on page: 1" for exactly that reason.
 const UNHIDDEN_MAX_WIDTH = 900;
 const UNHIDDEN_MAX_HEIGHT = 1800;
+// The feed column's own width, to tell posts from page furniture.
+const FEED_POST_MIN_WIDTH = 600;
+const FEED_POST_MAX_WIDTH = 760;
+const FEED_POST_MIN_HEIGHT = 300;
 
 // Counted across the WHOLE feed, not just what is on screen. The first version
 // of this restricted itself to the viewport and reported three cards, which
@@ -1181,22 +1185,26 @@ function surveyFeedCards() {
   const candidates = [];
   for (const el of document.querySelectorAll("div")) {
     const r = el.getBoundingClientRect();
-    if (r.height < UNHIDDEN_MIN_HEIGHT || r.width < UNHIDDEN_MIN_WIDTH) continue;
-    if (r.height > UNHIDDEN_MAX_HEIGHT || r.width > UNHIDDEN_MAX_WIDTH) continue;
+    // Feed-post width specifically. The left nav is 360 and the chat window 338,
+    // and counting those made "not hidden: 21" look like 21 unblocked ads when
+    // most of them were page furniture.
+    if (r.width < FEED_POST_MIN_WIDTH || r.width > FEED_POST_MAX_WIDTH) continue;
+    if (r.height < FEED_POST_MIN_HEIGHT || r.height > UNHIDDEN_MAX_HEIGHT) continue;
     candidates.push(el);
   }
   // Keep only the outermost of each nested run, so one card counts once.
   const outer = candidates.filter((el) => !candidates.some((o) => o !== el && o.contains(el)));
-  const hidden = [];
-  const visible = [];
-  for (const el of outer) {
-    if (el.querySelector("[data-fbsb-hidden]") || el.closest("[data-fbsb-hidden]")) {
-      hidden.push(el);
-    } else {
-      visible.push(el);
-    }
-  }
-  return { total: outer.length, hidden: hidden.length, visible };
+  const visible = outer.filter(
+    (el) => !el.querySelector("[data-fbsb-hidden]") && !el.closest("[data-fbsb-hidden]")
+  );
+  return {
+    // hiddenPosts is authoritative. A hidden post is display:none, so it has no
+    // box, fails every size filter above and cannot be counted by looking at
+    // the page - which is why the first version of this reported "hidden by
+    // us: 1" directly beneath a hidden count of 7.
+    hidden: hiddenPosts.size,
+    visible,
+  };
 }
 
 function sampleUnhiddenPosts() {
@@ -1357,7 +1365,10 @@ function buildDiagnostics() {
       : "not identified",
     samples: diagSamples,
     unhidden: sampleUnhiddenPosts(),
-    survey: (() => { const v = surveyFeedCards(); return { total: v.total, hidden: v.hidden, visible: v.visible.length }; })(),
+    survey: (() => {
+      const v = surveyFeedCards();
+      return { hidden: v.hidden, visible: v.visible.length };
+    })(),
   };
 }
 

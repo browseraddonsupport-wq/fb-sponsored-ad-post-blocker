@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.68
+
+### Fixed
+
+- **The survey's two numbers both meant something other than they said.**
+
+  `hidden by us: 1` appeared directly beneath a hidden count of 7. A hidden post
+  is `display: none`, so it has no box, fails every size filter and cannot be
+  counted by looking at the page. The count now comes from `hiddenPosts`, which
+  is authoritative.
+
+  `not hidden: 21` counted the left nav (360px), the stories tray and the
+  Messenger window alongside actual posts, so it read like 21 unblocked ads
+  when most of it was page furniture. Candidates are now restricted to
+  feed-post width — 600 to 760 on this layout — and at least 300 tall.
+
+  The line now reads:
+
+  ```
+  feed posts hidden: 7   feed-width posts still showing: 5
+  ```
+
+  Verified against a page containing three real posts, one marked hidden, a
+  360px nav, a 338px chat window and a short stories tray: reports 3 showing.
+
+### Note
+
+Fourth instrument correction in a row. The panel is now the only thing standing
+between a real answer and a plausible one, so each of its numbers gets a test
+before it is quoted — the same rule the extension itself has had since the
+fixture harness went in.
+
 ## 1.1.67
 
 ### Fixed

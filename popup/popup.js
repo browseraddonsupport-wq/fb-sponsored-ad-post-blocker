@@ -142,7 +142,7 @@ async function showDiagnostics(tabId) {
   if (d.survey) {
     lines.push(
       "",
-      `feed cards on page: ${d.survey.total}   hidden by us: ${d.survey.hidden}   not hidden: ${d.survey.visible}`
+      `feed posts hidden: ${d.survey.hidden}   feed-width posts still showing: ${d.survey.visible}`
     );
   }
 
