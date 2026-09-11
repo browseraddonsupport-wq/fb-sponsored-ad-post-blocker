@@ -151,6 +151,15 @@ async function showDiagnostics(tabId) {
     );
   }
 
+  // The shape rule's own receipts. Everything else in this panel reports a
+  // label that was read; this reports a judgement that was made, which is the
+  // only part worth double-checking by eye.
+  if (d.shapeHides && d.shapeHides.length) {
+    lines.push("", `HIDDEN BY SHAPE (${d.unlabeled}, showing ${d.shapeHides.length}):`);
+    lines.push("  a real name here means the rule is wrong - untick it");
+    d.shapeHides.forEach((h) => lines.push(`  - ${h}`));
+  }
+
   if (d.unhidden && d.unhidden.length) {
     lines.push("", `NOT HIDDEN (showing ${d.unhidden.length} of ${d.survey ? d.survey.visible : "?"}):`);
     d.unhidden.forEach((u, i) => {

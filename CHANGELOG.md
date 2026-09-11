@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.73
+
+A screenshot of a "Sponsored" card that was still visible — National Geographic
+Travel and West Virginia Tourism — caught a change that was about to make
+things worse, and showed why the outbound test was too narrow.
+
+### Fixed
+
+- **`/stories/<id>/` is no longer treated as a self-link, and must never be.**
+  It was about to be added to the permalink veto as an organic post shape. The
+  screenshot showed it on an ad — so adding it would have permanently immunised
+  that ad and every one shaped like it. `DESKTOP-AD-LABELS.md` now records this
+  as a trap: only add a self-link shape on evidence that ads do not use it.
+
+- **An ad does not have to use Facebook's link redirector.** The test looked
+  for `/l.php`, and that card linked straight out to nationalgeographic.com, so
+  nothing saw it. What an ad cannot avoid is leaving Facebook — the click has
+  to reach the advertiser — so any link to a non-Facebook host now makes a card
+  a candidate. The permalink veto is unchanged and still does the safety work.
+
+- **The panel was hiding the evidence.** Each unhidden card reports at most ten
+  facts, and aria-labels were crowding links out: the NatGeo card had seven
+  links and showed five, with the cut falling exactly where the answer was.
+  Links are reported first now.
+
+### Added
+
+- **The shape rule now shows its work.** `HIDDEN BY SHAPE` lists a name and a
+  link for each post it took, because a count cannot distinguish a feed that is
+  mostly ads from a rule that has started eating posts — and 1.1.72 reported 40
+  of them. A real name in that list means the rule is wrong, and unticking
+  **"Hide ads Facebook doesn't label"** is the fix.
+
+### Verified
+
+26 fixtures, ten of them false-positive guards. Two are new: the National
+Geographic card, and a friend posting the same link directly — the one the
+widened outbound test could most easily have swept up.
+
 ## 1.1.72
 
 The panel from 1.1.71 reported `0 have a DANGLING byline ref, 0 resolve

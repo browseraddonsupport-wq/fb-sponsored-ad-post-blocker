@@ -81,8 +81,34 @@ uppercase advertiser domain (`<ADVERTISER>.COM`, `<ADVERTISER>.COM`,
 `<ADVERTISER>.COM`) plus a CTA button ("Shop now", "Learn More"), and its byline
 anchor has no path where an organic post links to its own permalink.
 
-This is deliberately **not** implemented. A post sharing a news article looks
-similar, and hiding a friend's link is worse than missing an ad. If it is
-attempted, it needs fixtures for organic link-shares first — `tests/README.md`
-explains how to capture them — and the existing `expect: visible` guards must
-stay green.
+Implemented in 1.1.70-1.1.73, after the label routes above were exhausted. It
+rests on one veto: **a real post links to itself, an ad does not.** Everything
+else is only a way of becoming a candidate.
+
+### The permalink veto, and the trap in it
+
+The veto is a list of self-link shapes, and the list is the dangerous part —
+every shape missing from it is a real post the rule can hide. `/posts/` alone
+covered a profile post and nothing else; group posts, listings, reels, photos
+and events each link to themselves differently, and a live panel showed a
+buy-and-sell post whose only self-link was `/commerce/listing/…`.
+
+**`/stories/<id>/` is not on the list, and must not be added.** It looks
+exactly like a self-link. A screenshot on 2026-09-11 showed it on a card
+reading "Sponsored" in plain sight — National Geographic Travel and West
+Virginia Tourism — so ads use it too, and adding it would permanently immunise
+every ad shaped that way. Only add a shape here on evidence that ads do *not*
+use it.
+
+### Becoming a candidate
+
+Two routes, because Facebook ships these cards differently week to week:
+
+1. A **dangling `aria-labelledby`** in the byline. Held for all of a week: by
+   1.1.71 the survey read `0 dangling, 0 resolving` across every visible card.
+2. An **outbound link** — anything leaving facebook.com. Not just `/l.php`: the
+   National Geographic card linked straight to `nationalgeographic.com`.
+
+Ten `expect: visible` guards keep this honest, including a friend sharing a
+news link both ways round (through the redirector and direct), and a group
+post whose self-link is a listing. They must stay green.

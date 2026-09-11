@@ -1376,7 +1376,12 @@ function sampleUnhiddenPosts() {
       posinset: near("[aria-posinset]"),
       pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
-      evidence: [...new Set(evidence)].slice(0, 10),
+      // Links last in, first out: the NatGeo card reported 7 links and showed
+      // 5, with the cut falling exactly where the answer was. Keep every link
+      // and let the aria-labels take what room is left.
+      evidence: [...new Set(evidence.filter((e) => e.startsWith("href:")))]
+        .slice(0, 12)
+        .concat([...new Set(evidence.filter((e) => !e.startsWith("href:")))].slice(0, 8)),
       // Three of the four cards in the 1.1.71 panel reported no text, no
       // links, no aria and no labels at all - which is not what a feed post
       // looks like, so either the report was blind or they were not posts.
@@ -1409,6 +1414,7 @@ function buildDiagnostics() {
     lateText: lateTextLabels,
     rescued: rescuedLabels,
     unlabeled: unlabeledAdsHidden,
+    shapeHides: shapeHides.slice(),
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -1688,6 +1694,13 @@ function reportStats(now) {
 // buy-and-sell post whose only self-link was /commerce/listing/1740386377.
 const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\.php|watch|photo|photo\.php|photos|reel|reels|groups|events|notes|share|media\/set|commerce\/listing|marketplace\/item)([\/?]|$)/;
 
+// NOT in the list above, deliberately: /stories/<id>/. It looks exactly like a
+// self-link, and a screenshot on 2026-09-11 showed it on a card reading
+// "Sponsored" in plain sight - National Geographic Travel and West Virginia
+// Tourism. Adding it would have permanently immunised that ad and every one
+// shaped like it. Enumerating permalink shapes is whack-a-mole and this is the
+// mole: only add a shape here on evidence that ads do not use it.
+
 // Facebook routes every outbound link through this redirector. An ad always
 // has one, because sending you off-site is the entire point; an organic post
 // only has one when it happens to be sharing a link, and that post still links
@@ -1697,6 +1710,20 @@ const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\
 // it. Facebook had simply stopped shipping the reference: the survey read
 // "0 have a DANGLING byline ref, 0 resolve cleanly" across all 16 cards.
 const OUTBOUND_PATH = "/l.php";
+
+// ...but not every ad uses it. The National Geographic card linked straight
+// out to nationalgeographic.com, so a test for /l.php alone never saw it. What
+// an ad cannot avoid is leaving Facebook: the click has to reach the
+// advertiser. Hosts that are still Facebook do not count.
+const FACEBOOK_HOST_RE = /(^|\.)(facebook\.com|fb\.com|fbcdn\.net)$/i;
+
+function isOutboundLink(a) {
+  const href = a.getAttribute("href") || "";
+  if (!href || href.startsWith("#")) return false;
+  if (linkPath(a) === OUTBOUND_PATH) return true;
+  const m = /^(?:https?:)?\/\/([^/?#]+)/i.exec(href);
+  return !!m && !FACEBOOK_HOST_RE.test(m[1]);
+}
 
 function isDanglingRef(el) {
   for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
@@ -1763,6 +1790,28 @@ function cardFromLabelRef(el) {
   return best;
 }
 
+// The shape rule is the only one that infers rather than reads, so it is the
+// only one that can hide something real - and until now the panel reported
+// only how many it had taken, which is no help at all if the worry is *which*.
+// 57 hidden against 12 showing is either a feed that is mostly ads or a rule
+// that has started eating posts, and the count alone cannot tell those apart.
+// A name and a link each is enough: a friend's name in this list is the
+// answer, immediately.
+const MAX_SHAPE_AUDIT = 20;
+const shapeHides = [];
+
+function describeShapeHide(card) {
+  let fallback = "";
+  for (const a of card.querySelectorAll("a[href]")) {
+    const path = linkPath(a);
+    if (!path || path === "/" || path === OUTBOUND_PATH) continue;
+    const text = (a.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
+    if (text && text.length <= 40) return `${text} -> ${path.slice(0, 26)}`;
+    if (!fallback) fallback = path.slice(0, 26);
+  }
+  return fallback || "(no byline link)";
+}
+
 // How often the whole document is re-checked. Until 1.1.71 the sweep ran only
 // over the subtree a mutation had touched, which measured every card at the one
 // moment it could not possibly qualify: when a card is inserted its byline
@@ -1806,6 +1855,7 @@ function sweepUnlabeledAds(root) {
     if (card.closest("[data-fbsb-hidden]")) return;
     if (hasPermalink(card)) return;
     unlabeledAdsHidden += 1;
+    if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));
     hidePost(card, "sponsored", card);
   };
 
@@ -1814,8 +1864,8 @@ function sweepUnlabeledAds(root) {
       if (!isDanglingRef(el)) continue;
       consider(el, cardFromLabelRef(el));
     }
-    for (const a of scope.querySelectorAll('a[href*="l.php"]')) {
-      if (linkPath(a) !== OUTBOUND_PATH) continue;
+    for (const a of scope.querySelectorAll('a[href*="l.php"], a[href^="http"], a[href^="//"]')) {
+      if (!isOutboundLink(a)) continue;
       consider(a, cardFromLabelRef(a));
     }
   }

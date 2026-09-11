@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD for the widened outbound test. Leaving Facebook is now enough to make a card a candidate, which is a much larger net than /l.php was - so a friend posting a direct link to a news site lands in it. Their post links to itself, and that veto is all that saves it.",
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><a href=\"/afriend\">A Friend</a><span>&middot;</span><a href=\"/afriend/posts/pfbid0abc\">2h</a></div><span>good read</span><a href=\"https://www.nationalgeographic.com/travel/article/wv\"><span>NATIONALGEOGRAPHIC.COM</span></a></div></div></div>"
+}
