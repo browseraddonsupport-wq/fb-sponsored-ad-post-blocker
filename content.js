@@ -534,6 +534,37 @@ function findMobilePostContainer(label, reason) {
   return null;
 }
 
+// A feed card is wide; the chrome inside it is not. Below this, a candidate is
+// a button or a byline rather than a post, and hiding it would leave the ad in
+// place looking broken.
+const DESKTOP_CARD_MIN_WIDTH = 400;
+const DESKTOP_CARD_MAX_CLIMB = 14;
+// A real jump in width means the climb has left the card and entered the page
+// column. 1.2 is generous enough to tolerate padding without crossing it.
+const DESKTOP_CARD_WIDTH_JUMP = 1.2;
+
+function climbToCard(label) {
+  let node = label;
+  let best = null;
+  for (let i = 0; i < DESKTOP_CARD_MAX_CLIMB; i++) {
+    const parent = node.parentElement;
+    if (!parent || parent === document.body) break;
+    const width = node.getBoundingClientRect().width;
+    const parentWidth = parent.getBoundingClientRect().width;
+    // The width-jump rule only means anything once the climb has reached card
+    // width. Applied from the start it fires on the very first step - a label
+    // is a narrow inline span, and its parent is the whole card - so the climb
+    // ends immediately having found nothing. The fixture caught that before it
+    // shipped.
+    if (width >= DESKTOP_CARD_MIN_WIDTH) {
+      best = node;
+      if (parentWidth > width * DESKTOP_CARD_WIDTH_JUMP) break;
+    }
+    node = parent;
+  }
+  return best;
+}
+
 function findPostContainer(label, reason) {
   if (isMobileLayout()) return findMobilePostContainer(label, reason);
 
@@ -572,6 +603,26 @@ function findPostContainer(label, reason) {
   if (reason !== "unfollowed") {
     const rail = label.closest('[role="complementary"]');
     if (rail) return climbToChildOf(label, rail);
+  }
+
+  // Last resort: no landmark anywhere above the label. Observed live on
+  // 2026-09-11 - a The North Face ad reported article=-, pagelet=- and its
+  // aria-posinset as a *descendant* rather than an ancestor, so every strategy
+  // above returned null. The panel showed it exactly: matched 47, anchored 46.
+  // Detection was fine; there was simply nothing to hold on to.
+  //
+  // Climb to the outermost ancestor that is still card-shaped and stop at the
+  // width jump into the feed column. A feed card and its wrappers share one
+  // width (680 on this layout) while the column is far wider, so that jump is
+  // the boundary.
+  //
+  // Deliberately not applied to "unfollowed": a stray Follow button anywhere
+  // inside a card would take the whole card out, and with no landmark to
+  // confirm the label belongs to the post's own author there is nothing left
+  // to check it against. Same reasoning as the complementary rail above.
+  if (reason !== "unfollowed") {
+    const card = climbToCard(label);
+    if (card) return card;
   }
 
   return null;

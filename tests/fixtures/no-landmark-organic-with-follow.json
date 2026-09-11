@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. Landmark-less card with a Follow button and no ad label - climbToCard must not fire for unfollowed.",
+  "card": "<div><div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><h2>Barry Ridenour</h2><span>Follow</span><span>Great weekend</span></div></div></div></div>"
+}

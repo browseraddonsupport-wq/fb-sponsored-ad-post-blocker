@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.1.59
+
+### Fixed
+
+- **Ads with no landmark above their label could be detected but not hidden.**
+  The panel caught it exactly, for the first time this whole investigation:
+
+  ```
+  matched 47  anchored 46
+  #2 680x760  article=- posinset=descendant pagelet=-
+     by#_r_29u_->"Ad"  by#_r_2a7_->"Shop now"
+  ```
+
+  Detection was fine — the label resolves through `aria-labelledby` to `"Ad"`.
+  But the card carried no `role="article"`, no `data-pagelet`, and its
+  `aria-posinset` sat *inside* it rather than above the label, so
+  `label.closest('[aria-posinset]')` returned null and every strategy in
+  `findPostContainer` gave up. One label recognised and never anchored — which
+  is what `matched` exceeding `anchored` means, and why that pair is in the
+  panel.
+
+  A last-resort climb now walks to the outermost ancestor that is still
+  card-shaped, stopping at the width jump into the feed column. A card and its
+  wrappers share one width (680 on this layout) while the column is far wider,
+  so that jump is a reliable boundary.
+
+  **Not applied to `unfollowed`.** A stray Follow button anywhere inside a card
+  would otherwise take the whole card out, and with no landmark there is nothing
+  left to confirm the label belongs to the post's own author. Same reasoning as
+  the `role="complementary"` rail. A fixture guards it.
+
+### Two of my own bugs, caught before shipping
+
+The fixture for this failed twice before it passed, both times because of the
+harness rather than the page:
+
+1. The climb applied its width-jump rule from the very first step. A label is a
+   narrow inline span and its parent is the whole card, so it fired instantly
+   and the climb ended having found nothing.
+2. Before that, the panel that produced the evidence had the same leaf-only
+   blind spot the detector had (fixed in 1.1.58), which is why three earlier
+   cards looked label-less when they were not.
+
+12 fixtures pass, including three false-positive guards.
+
 ## 1.1.58
 
 ### Fixed

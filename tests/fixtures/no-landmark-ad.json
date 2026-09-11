@@ -1,0 +1,6 @@
+{
+  "expect": "hidden",
+  "why": "Ad with no landmark above the label; aria-posinset is a descendant. Observed live 2026-09-11 (The North Face) as matched 47 / anchored 46.",
+  "portal": "<span id=\"_r_nolandmark_\">Ad</span>",
+  "card": "<div><div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><span aria-labelledby=\"_r_nolandmark_\">x</span><span>&middot;</span><div aria-posinset=\"2\" style=\"width:660px;height:300px\">video</div><span>THENORTHFACE.COM</span></div></div></div></div>"
+}
