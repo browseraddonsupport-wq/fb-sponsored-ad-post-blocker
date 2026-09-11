@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.65
+
+### Added
+
+- **`DESKTOP-AD-LABELS.md`** — a record of every mechanism tried against ads
+  whose label cannot be read from the DOM, and how each was ruled out. Eleven of
+  them: leaf text, non-leaf own text, SVG `<text>`, `<use>` sprites, live
+  `aria-labelledby`, rescue-from-removal, a `documentElement`-rooted observer,
+  the `/ads/about/` path, CSS `::before`/`::after` content, `background-image`
+  and `mask-image`.
+
+  Written because the answer to "have we tried X?" was becoming expensive. The
+  next attempt should start from what is already eliminated.
+
+### Re-verified, not changed
+
+`data-ad-rendering-role` is still **not** an ad marker, despite being all over
+these cards and looking ideal when nothing else was left. Measured on a live
+feed: a local buy-sell group post — "Oakland County, MI Sell…" — reported
+
+```
+ad-roles=profile_name,story_message,meta,title   ad-preview=yes   ads/about=no
+```
+
+Not an ad. `data-ad-preview` and `data-ad-comet-preview` are no better; the
+same post carried those too. The long-standing warning in `classifyLabel` now
+carries a 2026 date and this counter-example, in the code and in the doc.
+
+### What this release does not do
+
+It does not hide ads whose label is absent from the page text — the Dyson and
+Power Crunch formats. `textContent` on a Dyson card reads
+`Dyson Verified account⁠  · Shared with Public…`: the icon titles are present
+and the word "Ad" simply is not. That is not obfuscation to see through; there
+is nothing there.
+
+The remaining option is a shape heuristic — advertiser domain, call-to-action,
+and a byline anchor with no path — left unimplemented because it would also
+match a friend sharing a news article. The fixture corpus and its
+`expect: visible` guards exist to make that decision measurable if it is ever
+taken.
+
 ## 1.1.64
 
 ### Added
