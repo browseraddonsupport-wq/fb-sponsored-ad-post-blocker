@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "Short form used on newer feed ads.",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><span>Ad</span><span>&middot;</span><span>advertiser.com</span></div></div></div></div></div>"
+}

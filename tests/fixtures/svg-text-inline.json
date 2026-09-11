@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "Label drawn as vector text inside the post (1.1.53).",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><svg><text>Ad</text></svg><span>&middot;</span></div></div></div></div></div>"
+}

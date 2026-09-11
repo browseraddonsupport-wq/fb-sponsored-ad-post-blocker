@@ -1,0 +1,6 @@
+{
+  "expect": "hidden",
+  "why": "Label drawn from an SVG sprite symbol the post references.",
+  "portal": "<svg><symbol id=\"SvgFixture\"><text>Sponsored</text></symbol></svg>",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><svg><use xlink:href=\"#SvgFixture\"></use></svg></div></div></div></div></div>"
+}

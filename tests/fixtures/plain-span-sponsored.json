@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "The simplest form: the word sits in its own leaf span.",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><span>Sponsored</span><span>&middot;</span></div></div></div></div></div>"
+}
