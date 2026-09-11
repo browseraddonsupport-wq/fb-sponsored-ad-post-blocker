@@ -1061,18 +1061,32 @@ function sampleUnhiddenPosts() {
   for (const el of outer.slice(0, UNHIDDEN_SAMPLE_LIMIT)) {
     const r = el.getBoundingClientRect();
     const labels = [];
+    const seenText = new Set();
     for (const leaf of el.querySelectorAll("*")) {
-      if (labels.length >= 10) break;
+      if (labels.length >= 12) break;
       if (leaf.children.length) continue;
       const t = (leaf.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
       if (!t || t.length > 20) continue;
+      // Icon <title> elements are leaves with text and no box, and a card holds
+      // dozens of them all reading the same thing. Unfiltered they crowd out
+      // every label that matters - the first report came back as ten identical
+      // span:"Facebook" entries. Only what actually renders, and only once.
+      const lr = leaf.getBoundingClientRect();
+      if (lr.width === 0 || lr.height === 0) continue;
+      if (seenText.has(t)) continue;
+      seenText.add(t);
       labels.push(`${leaf.tagName.toLowerCase()}:"${t}"`);
     }
+    // closest(), not getAttribute(): the landmark is rarely on the outermost
+    // div of a card, and reporting only that div's own attributes made every
+    // card look landmark-less - including ones the extension anchors fine.
+    const near = (sel) => (el.closest(sel) ? "self/anc" : el.querySelector(sel) ? "descendant" : "-");
     out.push({
       size: `${Math.round(r.width)}x${Math.round(r.height)}`,
-      role: el.getAttribute("role") || "-",
-      posinset: el.getAttribute("aria-posinset") || "-",
-      pagelet: el.getAttribute("data-pagelet") || "-",
+      cls: (el.className || "").toString().trim().split(/\s+/).slice(0, 2).join(" ") || "-",
+      role: near('[role="article"]'),
+      posinset: near("[aria-posinset]"),
+      pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
     });
   }

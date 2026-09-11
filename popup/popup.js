@@ -139,7 +139,8 @@ async function showDiagnostics(tabId) {
   if (d.unhidden && d.unhidden.length) {
     lines.push("", "VISIBLE, NOT HIDDEN:");
     d.unhidden.forEach((u, i) => {
-      lines.push(`  #${i + 1} ${u.size} role=${u.role} posinset=${u.posinset} pagelet=${u.pagelet}`);
+      lines.push(`  #${i + 1} ${u.size} cls=${u.cls || "-"}`);
+      lines.push(`     article=${u.role} posinset=${u.posinset} pagelet=${u.pagelet}`);
       lines.push(`     ${u.labels.join(" ") || "(no short texts)"}`);
     });
   }

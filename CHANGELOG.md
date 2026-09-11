@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.55
+
+### Fixed
+
+- **The `VISIBLE, NOT HIDDEN` report was unreadable.** Its first live run came
+  back as ten identical `span:"Facebook"` entries per card. Those are icon
+  `<title>` elements — leaves with text, no box, dozens per card — and taking
+  the first ten in DOM order crowded out every label that mattered.
+
+  It now reports only leaves that actually render, each text once. The same
+  card in a harness goes from ten `span:"Facebook"` to
+  `span:"Verkada" span:"Ad" span:"See more"`.
+
+- **Landmarks were read off the wrong element.** The report used
+  `getAttribute` on the card's outermost `div`, so every card looked
+  landmark-less — including ones the extension anchors without trouble. It now
+  uses `closest()` and `querySelector()`, and says whether the landmark is on
+  the card or one of its descendants.
+
+  This matters for the open question: the live report showed 680x781 ad cards
+  with no landmarks, while posts of the same width were being hidden
+  successfully. That contradiction was an artefact of where the attribute was
+  read, not a fact about the page.
+
 ## 1.1.54
 
 ### Added
