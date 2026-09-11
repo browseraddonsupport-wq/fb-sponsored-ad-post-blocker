@@ -1247,6 +1247,7 @@ function buildDiagnostics() {
     deferred: labelsDeferred,
     reveals: revealScans,
     lateText: lateTextLabels,
+    rescued: rescuedLabels,
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -1385,11 +1386,23 @@ const labelTextById = new Map();
 // A non-zero count here is the path 1.1.52 added; zero on a feed with ads means
 // that is not how they are being built any more.
 let lateTextLabels = 0;
+// Labels recovered from a removal record rather than an insertion - see the
+// note in the observer. Non-zero means Facebook is deleting labels faster than
+// an async callback can read them, which is invisible any other way.
+let rescuedLabels = 0;
 
 function rememberLabelTarget(el) {
   if (!el.id) return;
-  const text = el.textContent.replace(INVISIBLE_CHARS_RE, "").trim();
+  cacheLabelText(el.id, el.textContent, el);
+}
+
+// Separated from rememberLabelTarget so a label can be rescued from a removal
+// record, where there is an id and a string but the element may already be
+// detached and emptied. `source` is only used to resolve forward from.
+function cacheLabelText(id, raw, source) {
+  const text = (raw || "").replace(INVISIBLE_CHARS_RE, "").trim();
   if (!text || text.length > 40) return;
+  const el = { id, textContent: text };
   if (labelTextById.size >= MAX_LABEL_CACHE) {
     labelTextById.delete(labelTextById.keys().next().value);
   }
@@ -1406,7 +1419,7 @@ function rememberLabelTarget(el) {
     // target existing long enough for us to see it. Silence here means the
     // span was never inserted while we were observing, which is a different
     // problem from seeing it and failing to anchor it to a post.
-    const resolved = resolveViaReferrer(el);
+    const resolved = resolveViaReferrer(source && source.id ? source : { id });
     if (DEBUG) {
       console.log(`[fbsb] cached label #${el.id} = "${text}" -> referrer ${resolved ? "found" : "NOT FOUND"}`);
     }
@@ -1551,6 +1564,38 @@ const observer = new MutationObserver((mutations) => {
         restorePost(staleContainer);
       }
     }
+    // Removals carry the label too, and often only the removal does.
+    // MutationObserver callbacks are asynchronous: Facebook can create the
+    // span, set its text, let the browser compute the card's accessible name,
+    // then empty and remove it - all in one synchronous task. By the time this
+    // callback reads the added node, textContent is already "". The removal
+    // record still holds the data, because a removed text node keeps its
+    // content and a removed element keeps its id.
+    //
+    // Observed 2026-09-11 across four advertisers: cards reporting
+    // by#<id>->MISSING with matched == anchored, meaning the label was never
+    // seen at all. Rooting the observer at documentElement (1.1.61) did not
+    // help, which ruled out "inserted somewhere we were not watching".
+    //
+    // Bounded: an element only matters if it carries an id, and a text node
+    // only if its parent is an id-bearing leaf. Both are property reads.
+    for (const node of mutation.removedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.id) rememberLabelTarget(node);
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        const parent = mutation.target;
+        if (
+          parent &&
+          parent.nodeType === Node.ELEMENT_NODE &&
+          parent.id &&
+          parent.children.length === 0
+        ) {
+          rescuedLabels += 1;
+          cacheLabelText(parent.id, node.textContent, parent);
+        }
+      }
+    }
+
     for (const node of mutation.addedNodes) {
       if (node.nodeType !== Node.ELEMENT_NODE) {
         // An ad's label often completes in two steps: Facebook inserts

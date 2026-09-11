@@ -109,7 +109,7 @@ async function showDiagnostics(tabId) {
     `body: ${d.bodyClass || "(none)"}`,
     `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
     `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
-    `late-text labels: ${d.lateText == null ? "?" : d.lateText}`,
+    `late-text ${d.lateText == null ? "?" : d.lateText}  rescued-from-removal ${d.rescued == null ? "?" : d.rescued}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];

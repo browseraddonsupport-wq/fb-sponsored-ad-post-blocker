@@ -1,0 +1,6 @@
+{
+  "expect": "hidden",
+  "why": "Facebook inserts the label span, uses it for the accessible name, then empties and removes it in the same task - so an async observer callback reads \"\". Only the removal record still holds the text. Observed across four advertisers as by#<id>->MISSING.",
+  "portalRemove": "<span id=\"_r_race_\">Ad</span>",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><span aria-labelledby=\"_r_race_\">x</span><span>&middot;</span><span>ADVERTISER.COM</span></div></div></div>"
+}

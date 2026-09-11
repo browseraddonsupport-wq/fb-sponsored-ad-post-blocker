@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.62
+
+### Fixed
+
+- **Labels deleted before the observer could read them are now rescued from the
+  removal record.** This is why four advertisers in a row reported
+  `by#<id>->MISSING`.
+
+  MutationObserver callbacks are asynchronous. Facebook creates the label span,
+  sets its text, lets the browser compute the card's accessible name from it,
+  then empties and removes it — all in one synchronous task. By the time the
+  callback runs and reads the added node, `textContent` is already `""`, so
+  `rememberLabelTarget` bails and nothing is cached. The card is left pointing
+  at an id that no longer resolves.
+
+  The data is still there, in the records we were ignoring: a removed text node
+  keeps its content, and a removed element keeps its `id`. The observer now
+  reads `removedNodes` as well as `addedNodes` and caches from either.
+
+  Bounded to property reads — an element matters only if it carries an `id`, a
+  text node only if its parent is an id-bearing leaf.
+
+  Verified both directions: the fixture fails on 1.1.61 and passes here.
+
+- The panel reports `rescued-from-removal`. Non-zero means Facebook is deleting
+  labels faster than an async callback can read them.
+
+### Why 1.1.61 did not fix it
+
+Widening the observer to `documentElement` was the right thing to rule out, and
+it ruled it out: the spans are not being inserted somewhere unwatched. They are
+inserted where we are watching and destroyed before we look. Two different
+problems with identical symptoms.
+
+13 fixtures pass, three of them false-positive guards.
+
 ## 1.1.61
 
 ### Fixed

@@ -93,6 +93,30 @@ CONTENT_JS
       p.innerHTML = f.portal;
       document.body.appendChild(p);
     }
+
+    // portalRemove reproduces the race Facebook actually runs: insert the
+    // label, then empty and remove it in the SAME synchronous task, so that by
+    // the time an async MutationObserver callback reads the added node its text
+    // is already gone. Only the removal record still carries it.
+    //
+    // This one needs the real observer - the removal handling lives in its
+    // callback - so the card is built one turn later, after the callback has
+    // flushed. The observer is a microtask and fires fine in a hidden tab;
+    // only scheduleScan's requestAnimationFrame does not.
+    if (f.portalRemove) {
+      var holder = document.createElement("div");
+      holder.innerHTML = f.portalRemove;
+      document.body.appendChild(holder);
+      var span = holder.firstElementChild;
+      span.textContent = "";
+      holder.remove();
+      setTimeout(function () { buildAndCheck(f); }, 0);
+      return;
+    }
+    buildAndCheck(f);
+  }
+
+  function buildAndCheck(f) {
     // isImplausiblyShallow discards any label within 10 levels of <body> as a
     // portal decoy, and a real feed post sits far deeper than that. Without
     // this nesting every fixture "fails" for a reason that has nothing to do
