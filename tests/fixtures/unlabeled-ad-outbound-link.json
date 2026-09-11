@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "The 1.1.71 shape: an ad with NO aria-labelledby anywhere, so the dangling-reference route cannot see it. What it does have is a link out through /l.php and no link back to itself. Observed live 2026-09-11 as a card reading 'fabletics.com' and 'LIMITED TIME OFFER' while the survey reported 0 dangling and 0 resolving across every visible card.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/FableticsMen\">Fabletics Men</a><span>&middot;</span></div><a href=\"/l.php?u=https%3A%2F%2Ffabletics.com\"><span>fabletics.com</span><span>LIMITED TIME OFFER</span></a></div></div></div>"
+}

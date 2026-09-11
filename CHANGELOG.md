@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.1.72
+
+The panel from 1.1.71 reported `0 have a DANGLING byline ref, 0 resolve
+cleanly` across all sixteen visible cards. Facebook had stopped shipping the
+byline reference altogether, so the signal 1.1.70 was built on no longer
+existed on the page and the rule could not fire — `by-shape` fell from 14 to 2
+while an obvious ad sat visible.
+
+### Added
+
+- **A second way to recognise an unlabelled ad: the outbound link.** Facebook
+  routes off-site links through `/l.php`, and an ad always has one, because
+  sending you off-site is the entire point. An organic post only has one when
+  it happens to be sharing a link — and it still links back to itself.
+
+  The permalink veto is unchanged and still does the safety work: either signal
+  gets a card as far as "does this post link to itself?", and a real post
+  always does.
+
+### Fixed
+
+- **The permalink veto knew one shape of permalink out of a dozen.** It looked
+  for `/posts/`, which is how a profile post links to itself and how nothing
+  else does. A group post links to `/groups/<id>/`, a local listing to
+  `/commerce/listing/`, a reel to `/reel/`. Every one of those was a real post
+  the ad rule could have matched — the earlier panel showed one, a buy-and-sell
+  post whose only self-link was `/commerce/listing/1740386377`. Now covers
+  groups, listings, marketplace items, reels, videos, watch, photos, events,
+  notes and shares.
+
+- **Link paths were parsed against the page origin, with no fallback.** Where
+  that origin is unusable the parse threw and the raw href was compared
+  instead — query string and all — so every path test quietly failed. Live this
+  never happened; in the fixture harness it happened on every link, which meant
+  the guards proving a real post survives were passing without exercising the
+  rule they guard. Two of them were vacuous when written.
+
+### Added — diagnostics
+
+- Each unhidden card now reports `els= a= img= text=`. Three of the four cards
+  in the 1.1.71 panel reported no text, no links, no aria and no labels at all,
+  which is not what a feed post looks like — so either the report was blind or
+  they were not posts, and there was no way to tell which. These counts settle
+  it: an empty box holding a scroll position reads `a=0 img=0 text=0`.
+
+### Verified
+
+24 fixtures, nine of them false-positive guards. Three are new: an ad with no
+byline reference at all, a friend sharing a news link, and a group post whose
+self-link is a listing rather than a profile post.
+
 ## 1.1.71
 
 Three reasons ads and unfollowed posts stayed visible in 1.1.70, all three

@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD for the outbound-link route. A friend sharing a news article links out through /l.php exactly as an ad does. The difference is that their post links to itself, and that veto is the only thing standing between this rule and hiding real posts.",
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><a href=\"/afriend\">A Friend</a><span>&middot;</span><a href=\"/afriend/posts/pfbid0abc\">2h</a></div><span>worth reading</span><a href=\"/l.php?u=https%3A%2F%2Fnews.example\"><span>news.example</span></a></div></div></div>"
+}

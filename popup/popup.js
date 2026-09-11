@@ -156,6 +156,7 @@ async function showDiagnostics(tabId) {
     d.unhidden.forEach((u, i) => {
       lines.push(`  #${i + 1} ${u.size} cls=${u.cls || "-"}`);
       lines.push(`     article=${u.role} posinset=${u.posinset} pagelet=${u.pagelet}`);
+      if (u.shape) lines.push(`     ${u.shape}`);
       lines.push(`     ${u.labels.join(" ") || "(no short texts)"}`);
       if (u.evidence && u.evidence.length) lines.push(`     ${u.evidence.join(" ")}`);
     });

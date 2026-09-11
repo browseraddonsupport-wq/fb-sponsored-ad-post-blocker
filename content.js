@@ -1377,6 +1377,12 @@ function sampleUnhiddenPosts() {
       pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
       evidence: [...new Set(evidence)].slice(0, 10),
+      // Three of the four cards in the 1.1.71 panel reported no text, no
+      // links, no aria and no labels at all - which is not what a feed post
+      // looks like, so either the report was blind or they were not posts.
+      // Five counts settle it: an empty box holding a scroll position reads
+      // a=0 img=0 text=0, a real post never does.
+      shape: `els=${el.querySelectorAll("*").length} a=${el.querySelectorAll("a[href]").length} img=${el.querySelectorAll("img,video,canvas").length} text=${(el.textContent || "").trim().length}`,
     });
   }
   return out;
@@ -1674,7 +1680,23 @@ function reportStats(now) {
 // together matched every ad seen and no organic post seen - but "seen" is a few
 // dozen cards on one account, which is why this is off by default and worded in
 // the popup as something that may occasionally hide a real post.
-const PERMALINK_RE = /\/(posts|permalink|videos|photo|reel|watch)([\/?]|$)/;
+// Widened 1.1.71. "A real post links to itself" is the veto the whole shape
+// rule rests on, so every organic permalink shape has to be in here or the
+// rule hides real posts. /posts/ alone covered a profile post and nothing
+// else: a group post links to /groups/<id>/, a listing to /commerce/listing/,
+// a reel to /reel/. The earlier panel showed exactly that - a local
+// buy-and-sell post whose only self-link was /commerce/listing/1740386377.
+const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\.php|watch|photo|photo\.php|photos|reel|reels|groups|events|notes|share|media\/set|commerce\/listing|marketplace\/item)([\/?]|$)/;
+
+// Facebook routes every outbound link through this redirector. An ad always
+// has one, because sending you off-site is the entire point; an organic post
+// only has one when it happens to be sharing a link, and that post still links
+// to itself. Added 1.1.71 as a second way in, after a live panel reported an
+// obvious ad - "fabletics.com", "LIMITED TIME OFFER", /l.php - on a card with
+// no aria-labelledby anywhere, so the dangling-reference route could not see
+// it. Facebook had simply stopped shipping the reference: the survey read
+// "0 have a DANGLING byline ref, 0 resolve cleanly" across all 16 cards.
+const OUTBOUND_PATH = "/l.php";
 
 function isDanglingRef(el) {
   for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
@@ -1688,17 +1710,24 @@ function isDanglingRef(el) {
   return false;
 }
 
+function linkPath(a) {
+  const href = a.getAttribute("href") || "";
+  if (!href || href === "#") return "";
+  try {
+    return new URL(href, location.origin).pathname;
+  } catch (e) {
+    /* No usable origin to resolve against - a data: or file: document, which
+       is what the fixture harness is. Returning the raw href here meant every
+       path test silently compared against a string with the query still on it,
+       so the guards proving a real post survives were passing without ever
+       exercising the rule they guard. */
+  }
+  return href.replace(/^[a-z]+:\/\/[^/]*/i, "").split(/[?#]/)[0] || "/";
+}
+
 function hasPermalink(card) {
   for (const a of card.querySelectorAll("a[href]")) {
-    const href = a.getAttribute("href") || "";
-    if (!href || href === "#") continue;
-    let path = href;
-    try {
-      path = new URL(href, location.origin).pathname;
-    } catch (e) {
-      /* keep the raw value */
-    }
-    if (PERMALINK_RE.test(path)) return true;
+    if (PERMALINK_RE.test(linkPath(a))) return true;
   }
   return false;
 }
@@ -1762,21 +1791,32 @@ function sweepUnlabeledAds(root) {
     scopes.push(document.body);
   }
 
+  // Two ways in, because Facebook ships these cards differently from one day to
+  // the next: a byline reference pointing at a label that no longer exists, or
+  // a link out through the redirector. Either one only gets as far as the
+  // permalink veto, which is what keeps a real post safe in both cases.
   const seen = new Set();
+  const consider = (el, card) => {
+    if (!card) return;
+    // Reels and the photo viewer render in a dialog, never a feed card.
+    if (el.closest('[role="dialog"]')) return;
+    if (seen.has(card)) return;
+    seen.add(card);
+    if (hiddenPosts.has(card)) return;
+    if (card.closest("[data-fbsb-hidden]")) return;
+    if (hasPermalink(card)) return;
+    unlabeledAdsHidden += 1;
+    hidePost(card, "sponsored", card);
+  };
+
   for (const scope of scopes) {
     for (const el of scope.querySelectorAll("[aria-labelledby]")) {
-      if (seen.has(el)) continue;
-      seen.add(el);
       if (!isDanglingRef(el)) continue;
-      // Reels and the photo viewer render in a dialog, never a feed card.
-      if (el.closest('[role="dialog"]')) continue;
-      const card = cardFromLabelRef(el);
-      if (!card) continue;
-      if (hiddenPosts.has(card)) continue;
-      if (card.closest("[data-fbsb-hidden]")) continue;
-      if (hasPermalink(card)) continue;
-      unlabeledAdsHidden += 1;
-      hidePost(card, "sponsored", card);
+      consider(el, cardFromLabelRef(el));
+    }
+    for (const a of scope.querySelectorAll('a[href*="l.php"]')) {
+      if (linkPath(a) !== OUTBOUND_PATH) continue;
+      consider(a, cardFromLabelRef(a));
     }
   }
 }
