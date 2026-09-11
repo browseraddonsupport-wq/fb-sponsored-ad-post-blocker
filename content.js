@@ -1225,7 +1225,16 @@ function cacheLabelTargets(node) {
 
 // `use` is here because sprite-rendered labels carry no text of their own —
 // see the reference-following branch in classifyLabel.
-const LABEL_SELECTOR = "span, a, use, [aria-label], [aria-labelledby]";
+// SVG <text> is in here because Facebook draws some feed-ad labels as vector
+// text rather than as a <span>: an inline <svg> holding <text>Ad</text>. That
+// element classifies correctly - classifyLabel's leaf branch reads its
+// textContent like any other - but it was never handed to the scan, so those
+// ads were never examined at all. Confirmed by inspecting a live ad's label:
+// "classifies as Ad: true, selectable: false".
+//
+// Cheap to add: SVG text nodes are rare next to spans, and the selector is
+// evaluated once per scanned subtree rather than per element.
+const LABEL_SELECTOR = "span, a, use, text, [aria-label], [aria-labelledby]";
 
 // Self-instrumentation. Whether this extension is what's stalling the feed is
 // answerable with numbers rather than argument, and a synthetic page doesn't

@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.1.53
+
+### Fixed
+
+- **Ads whose label is drawn as SVG text were never examined.** Facebook renders
+  some feed-ad labels as vector text rather than a `<span>` — an inline `<svg>`
+  holding `<text>Ad</text>`. Inspecting one on a live feed said it exactly:
+
+  ```
+  classifies as Ad: true    selectable: false
+  ```
+
+  `classifyLabel` recognises it fine; its leaf branch reads `textContent` like
+  any other element. But `LABEL_SELECTOR` listed `span, a, use, [aria-label],
+  [aria-labelledby]` and not `text`, so the scan never handed it over. Those ads
+  were never looked at, whoever the advertiser was.
+
+  `text` is now in the selector. SVG text nodes are rare next to spans, and the
+  selector runs once per scanned subtree rather than per element, so the cost is
+  negligible.
+
+  Verified before and after against a harness with an ad card labelled by
+  `<text>Ad</text>` at realistic depth: 1.1.52 leaves it visible, 1.1.53 hides
+  it.
+
+### What this does not settle
+
+Whether those ads can then be **anchored**. A viewport sweep found the visible
+ad card carried no `role="article"`, no `aria-posinset` and no `data-pagelet`,
+so `findPostContainer` may still have nothing to grab even now that the label is
+seen.
+
+The diagnostics panel answers that without further probing: if `matched` now
+climbs above `anchored`, detection is fixed and anchoring is the remaining
+problem, and the fix is a card-sized-ancestor climb of the kind
+`climbToChildOf` already does for the sidebar rail.
+
 ## 1.1.52
 
 ### Fixed
