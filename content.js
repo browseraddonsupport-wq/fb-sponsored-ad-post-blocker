@@ -1100,8 +1100,14 @@ function sampleUnhiddenPosts() {
     const seenText = new Set();
     for (const leaf of el.querySelectorAll("*")) {
       if (labels.length >= 12) break;
-      if (leaf.children.length) continue;
-      const t = (leaf.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
+      // Non-leaves are reported by their OWN text only, the same way
+      // classifyLabel reads them since 1.1.57. Without this the report has the
+      // identical blind spot the detector had, and an "Ad" sharing an element
+      // with an icon is invisible in both - which is exactly how the Yasso and
+      // Coca-Cola cards were able to look label-less.
+      const own = leaf.children.length ? ownText(leaf) : leaf.textContent;
+      if (!own) continue;
+      const t = own.replace(INVISIBLE_CHARS_RE, "").trim();
       if (!t || t.length > 20) continue;
       // Icon <title> elements are leaves with text and no box, and a card holds
       // dozens of them all reading the same thing. Unfiltered they crowd out
@@ -1111,7 +1117,7 @@ function sampleUnhiddenPosts() {
       if (lr.width === 0 || lr.height === 0) continue;
       if (seenText.has(t)) continue;
       seenText.add(t);
-      labels.push(`${leaf.tagName.toLowerCase()}:"${t}"`);
+      labels.push(`${leaf.tagName.toLowerCase()}${leaf.children.length ? "*" : ""}:"${t}"`);
     }
     // Two ad cards in a row reported a span:"·" - the separator that follows
     // "Ad" in Facebook's byline - with no "Ad" text anywhere. So on those cards

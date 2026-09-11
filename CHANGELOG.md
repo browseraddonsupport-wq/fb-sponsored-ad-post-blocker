@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.1.58
+
+### Fixed
+
+- **The unhidden-card report had the same blind spot the detector just lost.**
+  It collected only leaf elements, so an "Ad" sharing an element with an icon
+  was invisible to it — which is precisely how the Yasso and Coca-Cola cards
+  managed to look label-less while plainly showing "Ad · 🌐" on screen.
+
+  Non-leaves are now reported by their **own** text, the same way
+  `classifyLabel` reads them since 1.1.57, and marked with `*`:
+
+  ```
+  span:"Coca-Cola" span*:"Ad" span:"·" span:"COCA-COLA.COM"
+  ```
+
+  A diagnostic that cannot see what the detector can see is worse than none: it
+  produced a fixture guessing at `<span>Ad<svg/></span>`, which passes while the
+  real card still gets through.
+
+### Note
+
+1.1.57's fix is correct and stays — that form exists and is now handled. It is
+simply not what the Coca-Cola card is doing, and this release is about being
+able to tell the difference.
+
 ## 1.1.57
 
 ### Fixed
