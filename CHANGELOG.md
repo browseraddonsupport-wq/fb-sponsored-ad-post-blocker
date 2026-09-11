@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.75
+
+### Fixed
+
+- **Some ads lost their picture and kept everything else.** Screenshot
+  2026-09-11: an ad with the image gone and the byline, the body
+  text and the reaction counts still sitting there. The climb from an outbound
+  link to the card it belongs to was stopping at the media block, because a
+  card is often much taller than the block its link sits in and the rule read
+  that difference as having left the card.
+
+  Height was the wrong thing to stop on. The upper height bound already keeps
+  the climb out of the feed column; what it does not cover is a feed short
+  enough to fit inside it, so the climb now stops at the first ancestor holding
+  more than one card-shaped child. A card has one subject; a container of cards
+  has several.
+
+### Changed — test harness
+
+- **A throw in a fixture no longer stops the run.** It used to leave the page
+  sitting on "running…" with no output and nothing in the console, which is
+  indistinguishable from an infinite loop and far worse to debug than a failing
+  test. An editing mistake that deleted a function definition cost several
+  minutes exactly that way while preparing this release. Throws are now
+  reported as `ERROR` against the fixture that hit them.
+
+### Verified
+
+29 fixtures, twelve of them false-positive guards. The new one is the Goose
+Creek card, and it failed before the fix and passed after it.
+
 ## 1.1.74
 
 The audit list added in 1.1.73 did its job on the first reading. Of 36 posts

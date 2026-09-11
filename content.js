@@ -1763,16 +1763,35 @@ function hasPermalink(card) {
   return false;
 }
 
-// A jump in either dimension means the climb has left the card. Width alone is
-// not enough: on the layout measured 2026-09-11 the feed column is itself 680
-// wide, and only its height (5143px, twelve children) told it apart from the
-// 680x862 card inside it.
-const CARD_HEIGHT_JUMP = 1.6;
+// Where the climb has to stop. Height was the wrong answer: a card is often far
+// taller than the media block its outbound link sits in, so "the parent is much
+// taller, we must have left the card" fired *inside* the card and the rule hid
+// the picture out of an ad while the byline, the text and the reaction counts
+// stayed. Screenshot 2026-09-11, Goose Creek.
+//
+// The upper height bound already keeps the climb out of the feed column, which
+// runs to thousands of pixels. What it does not cover is a short feed - few
+// enough posts that the column itself fits - so stop instead at the first
+// ancestor holding more than one card-shaped child. A card has one subject; a
+// container of cards has several.
+function holdsSeveralCards(el) {
+  let cards = 0;
+  for (const child of el.children) {
+    const r = child.getBoundingClientRect();
+    if (
+      r.width >= FEED_POST_MIN_WIDTH && r.width <= FEED_POST_MAX_WIDTH &&
+      r.height >= FEED_POST_MIN_HEIGHT
+    ) {
+      if (++cards > 1) return true;
+    }
+  }
+  return false;
+}
 
-// Climb from a dangling label reference to the card holding it. Starting from
-// the reference rather than from every <div> is what makes a repeated
-// document-wide sweep affordable: a feed holds a handful of aria-labelledby
-// elements and thousands of divs, and only the former can satisfy the rule.
+// Climb from a dangling label reference or an outbound link to the card holding
+// it. Starting from those rather than from every <div> is what makes a repeated
+// document-wide sweep affordable: a feed holds a handful of them and thousands
+// of divs, and only they can satisfy the rule.
 function cardFromLabelRef(el) {
   let node = el;
   let best = null;
@@ -1787,20 +1806,13 @@ function cardFromLabelRef(el) {
       best = node;
       const pr = parent.getBoundingClientRect();
       if (pr.width > r.width * DESKTOP_CARD_WIDTH_JUMP) break;
-      if (pr.height > r.height * CARD_HEIGHT_JUMP) break;
+      if (holdsSeveralCards(parent)) break;
     }
     node = parent;
   }
   return best;
 }
 
-// The shape rule is the only one that infers rather than reads, so it is the
-// only one that can hide something real - and until now the panel reported
-// only how many it had taken, which is no help at all if the worry is *which*.
-// 57 hidden against 12 showing is either a feed that is mostly ads or a rule
-// that has started eating posts, and the count alone cannot tell those apart.
-// A name and a link each is enough: a friend's name in this list is the
-// answer, immediately.
 // Feed-width and feed-height is not the same as "a post". The stories tray sits
 // at the top of the feed at exactly the same width, and the audit list caught
 // the rule taking it: "Online status indicatorActive -> /stories/1221077...",
@@ -1822,6 +1834,11 @@ function looksLikePost(card) {
   return true;
 }
 
+// The shape rule is the only one that infers rather than reads, so it is the
+// only one that can hide something real - and until 1.1.73 the panel reported
+// only how many it had taken, which is no help at all if the worry is *which*.
+// A name and a link each is enough: a friend's name in this list is the
+// answer, immediately. It found the stories tray on its first reading.
 const MAX_SHAPE_AUDIT = 20;
 const shapeHides = [];
 

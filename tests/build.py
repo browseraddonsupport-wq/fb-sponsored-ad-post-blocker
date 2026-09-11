@@ -116,31 +116,9 @@ CONTENT_JS
     buildAndCheck(f);
   }
 
-  function buildAndCheck(f) {
-    // isImplausiblyShallow discards any label within 10 levels of <body> as a
-    // portal decoy, and a real feed post sits far deeper than that. Without
-    // this nesting every fixture "fails" for a reason that has nothing to do
-    // with the fixture - which is exactly what the first run of this harness
-    // reported.
-    var chain = sandbox;
-    for (var n = 0; n < 16; n++) {
-      var w = document.createElement("div");
-      chain.appendChild(w);
-      chain = w;
-    }
-    var host = document.createElement("div");
-    host.innerHTML = f.card;
-    chain.appendChild(host);
-
-    // Some rules are off by default - the shape-based one that can hide a real
-    // post, for instance - so a fixture can switch them on for itself.
-    //
-    // Reset to defaults FIRST. Without it an override leaks into every later
-    // fixture: the guard proving the shape rule is off by default was itself
-    // run with the rule left on by the fixture before it, and failed.
-    Object.assign(settings, DEFAULT_SETTINGS);
-    if (f.settings) Object.assign(settings, f.settings);
-
+  // Everything that can throw, in one place, so buildAndCheck can report a
+  // throw as a failed fixture instead of stopping the run.
+  function driveFixture(f, host) {
     // Drive the same two steps the MutationObserver performs, rather than
     // waiting on it. scheduleScan defers through requestAnimationFrame, which
     // does not fire reliably in a background or hidden tab - the first runs of
@@ -166,6 +144,48 @@ CONTENT_JS
       var elsewhere = document.createElement("div");
       document.body.appendChild(elsewhere);
       scanRoot(elsewhere);
+    }
+
+  }
+
+  function buildAndCheck(f) {
+    // isImplausiblyShallow discards any label within 10 levels of <body> as a
+    // portal decoy, and a real feed post sits far deeper than that. Without
+    // this nesting every fixture "fails" for a reason that has nothing to do
+    // with the fixture - which is exactly what the first run of this harness
+    // reported.
+    var chain = sandbox;
+    for (var n = 0; n < 16; n++) {
+      var w = document.createElement("div");
+      chain.appendChild(w);
+      chain = w;
+    }
+    var host = document.createElement("div");
+    host.innerHTML = f.card;
+    chain.appendChild(host);
+
+    // Some rules are off by default - the shape-based one that can hide a real
+    // post, for instance - so a fixture can switch them on for itself.
+    //
+    // Reset to defaults FIRST. Without it an override leaks into every later
+    // fixture: the guard proving the shape rule is off by default was itself
+    // run with the rule left on by the fixture before it, and failed.
+    Object.assign(settings, DEFAULT_SETTINGS);
+    if (f.settings) Object.assign(settings, f.settings);
+
+    // A throw in here used to stop the run dead: the page sat on "running..."
+    // with no output and nothing in the console, which looks exactly like an
+    // infinite loop and is a much worse thing to debug than a failing test.
+    // An editing mistake that deleted a function definition cost several
+    // minutes that way. Report it as a failure against the fixture that hit it.
+    try {
+      driveFixture(f, host);
+    } catch (err) {
+      fail++;
+      lines.push("<span class='fail'>ERROR</span>  " + f.name + "   threw: " + err.message);
+      out.innerHTML = lines.join(NL);
+      next();
+      return;
     }
 
     // Let the observer and the rAF-coalesced scan run, as they would live.
