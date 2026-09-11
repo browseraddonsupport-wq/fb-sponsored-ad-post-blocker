@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.61
+
+### Fixed
+
+- **Label spans inserted outside `<body>` were never seen.** The observer was
+  rooted at `document.body`, so anything Facebook parks directly under `<html>`
+  was invisible to it however briefly it lived — and these portal spans are
+  page-level scratch nodes of exactly that kind.
+
+  1.1.60's `MISSING` marker is what exposed it. A The Farmer's Dog ad reported:
+
+  ```
+  matched 10  anchored 10
+  by#_r_18n_->MISSING
+  ```
+
+  The card pointed at a label that was neither live nor cached, while the
+  counts showed nothing had been recognised at all. Not a detection bug and not
+  an anchoring bug — a third category: the span existed, was used to compute
+  the card's accessible name, and was gone before the extension ever saw it.
+
+  The observer now watches `document.documentElement`. `cacheLabelTargets`
+  already runs synchronously on every added element, so a span reaching the
+  document at all is now recorded before it can be removed, and
+  `rememberLabelTarget` resolves forward from it.
+
+  The added coverage is `<head>` and stray top-level nodes. Facebook mutates
+  head when injecting styles, so this is not free — but observer cost was
+  measuring 0.0% of wall-clock across 89 calls, and the panel reports that
+  figure, so a regression shows up as a number rather than an argument.
+
+### Three failure modes, now distinguishable
+
+This investigation ran through all three, and the panel separates them:
+
+| symptom | reading |
+| --- | --- |
+| label not recognised | `matched` low, no `by#` evidence |
+| recognised, nowhere to put it | `matched` > `anchored` |
+| label never observed | `by#…->MISSING` |
+
+Each needed a different fix — 1.1.57/1.1.58, 1.1.59, and this one.
+
 ## 1.1.60
 
 ### Added

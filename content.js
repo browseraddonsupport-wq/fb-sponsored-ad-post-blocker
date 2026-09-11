@@ -1617,7 +1617,19 @@ const observer = new MutationObserver((mutations) => {
 let bootState = "pending";
 
 function startObserving() {
-  observer.observe(document.body, { childList: true, subtree: true });
+  // documentElement, not body. A label span inserted outside <body> - directly
+  // under <html> - is invisible to an observer rooted at body, however briefly
+  // it lives, and these portal spans are page-level scratch nodes of exactly
+  // that kind. Observed 2026-09-11: a The Farmer's Dog ad whose card pointed at
+  // by#_r_18n_->MISSING, meaning the span was neither live nor ever cached,
+  // while matched/anchored showed nothing had even been recognised.
+  //
+  // The extra coverage is <head> and any stray top-level nodes. Facebook
+  // mutates head when it injects styles, so this is not free - but the observer
+  // was measuring 0.0% of wall-clock across 89 calls, and the panel reports
+  // that figure, so a regression here shows up as a number rather than a
+  // guess.
+  observer.observe(document.documentElement, { childList: true, subtree: true });
   cacheLabelTargets(document.body);
   scanRoot(document.body);
   bootState = "running";
