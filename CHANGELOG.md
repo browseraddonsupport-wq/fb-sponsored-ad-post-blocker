@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.1.63
+
+### Fixed
+
+- **Ads are now detected by their "Why am I seeing this ad?" link.** Inspecting
+  a live The Farmer's Dog ad settled a question five releases had failed to
+  answer. Its byline label is:
+
+  ```html
+  <a href="/ads/about/?__cft__[0]=…">
+    <span><span aria-labelledby="_r_7g_"><span></span></span></span>
+  </a>
+  ```
+
+  The innermost span is **empty**. The word "Ad" is plainly on screen — it is
+  simply not text: it exists only as an accessible name computed from a span
+  Facebook deletes immediately afterwards. That is why leaf text, non-leaf own
+  text, `<use>` sprites, live `aria-labelledby`, and rescue-from-removal all
+  came back with nothing, and why the panel kept reporting
+  `by#<id>->MISSING`.
+
+  The anchor's `href` is the signal, and it is structural rather than textual:
+  `/ads/about/` is Facebook's ad explainer, linked from advertisements and
+  nowhere else. An organic byline links to the post's own permalink. `a` was
+  already in `LABEL_SELECTOR`, so this costs one attribute read on elements the
+  scan visits anyway.
+
+  Verified both directions — the fixture fails on 1.1.62 and passes here — and
+  the pattern was checked against four hrefs, matching both the relative and
+  absolute ad forms while rejecting `/groups/adsandmarketing/posts/9`.
+
+### What this deliberately does not use
+
+`data-ad-rendering-role` is all over these cards and looks perfect. The warning
+already in `classifyLabel` stands: it appears on ordinary posts too, because
+Facebook renders both through the same story template, and keying off it hides
+the entire feed.
+
+16 fixtures pass, five of them false-positive guards.
+
 ## 1.1.62
 
 ### Fixed

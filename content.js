@@ -52,6 +52,9 @@ const UNFOLLOWED_TEXTS = new Set(["Follow", "Join"]);
 const APP_BANNER_TEXTS = new Set(["Open app"]);
 const APP_BANNER_SELECTOR = ".fixed-container.bottom";
 const SPONSORED_ARIA_RE = /sponsored content$/i;
+// The "Why am I seeing this ad?" explainer. Matches both "/ads/about/" and the
+// absolute form; the query string Facebook appends is irrelevant.
+const ADS_ABOUT_RE = /(^|\.com)\/ads\/about(\/|\?|$)/;
 
 // Facebook renders label text as one <span> per character and scrambles it
 // two ways at once:
@@ -290,6 +293,29 @@ function classifyLabel(el) {
         if (reason) return reason;
       }
     }
+  }
+
+  // Facebook's byline links the "Ad" label to /ads/about/ - the "Why am I
+  // seeing this ad?" explainer. Structural, not textual, which matters because
+  // on current markup there is no text to find: the byline is
+  //
+  //   <a href="/ads/about/?...">
+  //     <span><span aria-labelledby="_r_7g_"><span></span></span></span>
+  //   </a>
+  //
+  // The innermost span is empty. The word "Ad" exists only as an accessible
+  // name computed from a span Facebook deletes immediately, which is why five
+  // separate text routes all came back with nothing while the card plainly
+  // read "Ad · " on screen.
+  //
+  // Unlike data-ad-rendering-role (see the warning above), this link is not on
+  // ordinary posts: an organic byline links to the post's own permalink.
+  //
+  // `a` is already in LABEL_SELECTOR, so this costs one attribute read on
+  // elements the scan was visiting anyway.
+  if (settings.hideSponsored && el.tagName === "A") {
+    const href = el.getAttribute("href") || "";
+    if (ADS_ABOUT_RE.test(href)) return "sponsored";
   }
 
   const ariaLabel = el.getAttribute && el.getAttribute("aria-label");
