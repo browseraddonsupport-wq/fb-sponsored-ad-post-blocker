@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "The label text shares its element with an icon, so the element is not a leaf. Derived from a live unhidden ad (Yasso, 2026-09-11) whose panel entry showed a span:\"·\" leaf, no \"Ad\" leaf, and no use/aria-labelledby route to one.",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><span>Ad<svg width=\"12\" height=\"12\"><circle cx=\"6\" cy=\"6\" r=\"5\"></circle></svg></span><span>&middot;</span><span>YASSO.COM</span></div></div></div></div></div>"
+}

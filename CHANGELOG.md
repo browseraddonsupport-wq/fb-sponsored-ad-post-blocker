@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.1.57
+
+### Fixed
+
+- **Ads whose label shares an element with an icon were never read.** Several
+  feed ads render the byline as `<span>Ad<svg>…</svg></span>` — text and a
+  globe icon in one element. `classifyLabel` only read text from leaves, and
+  such an element is not a leaf; it is not character-split either, so it fell
+  through unexamined and the ad stayed visible.
+
+  Observed live on a Yasso ad (2026-09-11): the panel showed a `span:"·"` for
+  the byline separator, **no `"Ad"` leaf anywhere**, and no `<use>` or
+  `aria-labelledby` route to one. All three known indirections ruled out at
+  once, which is what pointed here.
+
+  `classifyLabel` now also reads an element's **own** text nodes, ignoring
+  anything its children hold. That preserves the reason leaves were the rule in
+  the first place: it never descends, so the quadratic re-walk of the same
+  subtree at every nesting level — which once stalled Facebook's rendering —
+  cannot happen. One pass over direct children, capped at 300 characters.
+
+### Not caused by the diagnostic releases
+
+The same fixtures were run against v1.1.50, v1.1.52 and current:
+
+| fixture | v1.1.50 | v1.1.52 | current |
+| --- | --- | --- | --- |
+| `label-beside-icon` | FAIL | FAIL | FAIL (fixed here) |
+| `svg-text-inline` | FAIL | FAIL | PASS since 1.1.53 |
+| all others | pass | pass | pass |
+
+So this gap predates every release from yesterday, and 1.1.53-1.1.56 detect
+strictly more than 1.1.50 did while breaking nothing. Ads returning is most
+likely Facebook shifting more of them into a form that was never handled.
+
+All 10 fixtures pass.
+
 ## 1.1.56
 
 ### Added

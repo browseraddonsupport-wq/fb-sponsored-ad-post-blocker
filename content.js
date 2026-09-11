@@ -198,6 +198,22 @@ function isCharacterSplit(el) {
   return true;
 }
 
+// The text an element holds directly, ignoring anything its children hold.
+// Bounded by the number of direct children and never recurses - see the note in
+// classifyLabel about why walking subtrees here is what once stalled Facebook's
+// rendering.
+const MAX_OWN_TEXT = 300;
+
+function ownText(el) {
+  let out = "";
+  for (const node of el.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    out += node.textContent;
+    if (out.length > MAX_OWN_TEXT) return "";
+  }
+  return out.trim() ? out : "";
+}
+
 function classifyLabel(el) {
   // Only two element shapes can carry a text label, and reading either is
   // cheap:
@@ -215,6 +231,26 @@ function classifyLabel(el) {
     if (raw && raw.length <= 300) {
       const reason = reasonForText(raw.replace(INVISIBLE_CHARS_RE, "").trim());
       if (reason) return reason;
+    }
+  } else if (ownText(el)) {
+    // An element can hold the label text AND an element child - "Ad" sitting
+    // beside a globe icon, which is how several feed ads are built. It is not a
+    // leaf, so the branch above skips it; it is not character-split either, so
+    // it used to fall through unread and the ad stayed visible. Observed live
+    // on 2026-09-11: a Yasso ad card whose panel entry had a span for the "·"
+    // separator, no "Ad" leaf anywhere, and no use/aria-labelledby route to one.
+    //
+    // Reading only this element's OWN text nodes is what keeps the leaf rule's
+    // guarantee: it never descends, so the quadratic re-walk of the same
+    // subtree at every nesting level cannot happen. One pass over direct
+    // children, no recursion.
+    const reason = reasonForText(ownText(el).replace(INVISIBLE_CHARS_RE, "").trim());
+    if (reason) return reason;
+    if (isCharacterSplit(el)) {
+      for (const variant of labelVariants(el)) {
+        const r = reasonForText(variant);
+        if (r) return r;
+      }
     }
   } else if (isCharacterSplit(el)) {
     for (const variant of labelVariants(el)) {

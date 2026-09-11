@@ -7,7 +7,7 @@ actually execute, and file:// cannot fetch the fixtures, so they are inlined.
 
 Usage:  python tests/build.py   then open tests/runner.html in any browser.
 """
-import io, json, os, glob
+import io, json, os, glob, sys, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -20,7 +20,14 @@ for path in sorted(glob.glob(os.path.join(ROOT, "tests", "fixtures", "*.json")))
     data["name"] = os.path.splitext(os.path.basename(path))[0]
     fixtures.append(data)
 
-src = read("content.js")
+# Optional git ref: `python tests/build.py v1.1.52` tests that version's
+# content.js instead of the working tree, writing runner-<ref>.html. Lets a
+# regression be attributed to a release rather than argued about.
+ref = sys.argv[1] if len(sys.argv) > 1 else None
+if ref:
+    src = subprocess.check_output(["git", "show", ref + ":content.js"], cwd=ROOT).decode("utf-8")
+else:
+    src = read("content.js")
 
 html = """<!doctype html><meta charset="utf-8"><title>fbsb fixture tests</title>
 <style>
@@ -132,5 +139,5 @@ CONTENT_JS
 
 html = html.replace("FIXTURES_JSON", json.dumps(fixtures))
 html = html.replace("CONTENT_JS", src)
-io.open(os.path.join(ROOT, "tests", "runner.html"), "w", encoding="utf-8", newline="\n").write(html)
-print("wrote tests/runner.html  (%d fixtures)" % len(fixtures))
+io.open(os.path.join(ROOT, "tests", "runner-" + ref + ".html" if ref else "runner.html"), "w", encoding="utf-8", newline="\n").write(html)
+print("wrote tests/runner%s.html  (%d fixtures)" % ("-" + ref if ref else "", len(fixtures)))
