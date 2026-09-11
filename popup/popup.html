@@ -48,6 +48,15 @@
         <input type="checkbox" id="hideAppBanner" />
         <span>Hide the mobile &quot;Open app&quot; bar</span>
       </label>
+      <!-- The only rule that infers "ad" from shape rather than reading a
+           label, so it is the only one that can hide a real post. On by
+           default because Facebook now ships ads with no readable label, but
+           worded so that switching it off is the obvious first move if a real
+           post ever disappears. -->
+      <label class="option">
+        <input type="checkbox" id="hideUnlabeledAds" />
+        <span>Hide ads Facebook doesn't label <em>(turn off if a real post ever disappears)</em></span>
+      </label>
       <label class="option">
         <input type="checkbox" id="placeholderMode" />
         <span>Show a "Show" placeholder instead of removing completely</span>

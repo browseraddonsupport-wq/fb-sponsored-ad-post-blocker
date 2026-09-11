@@ -30,6 +30,12 @@ const DEFAULT_SETTINGS = {
   hideSuggested: true,
   hideUnfollowed: true,
   hideAppBanner: true,
+  // ON by default. This is the only rule that infers "ad" from shape rather
+  // than reading a label, so it is the only one that can hide a real post - but
+  // Facebook now ships ads carrying no readable label at all, and an extension
+  // whose whole purpose is hiding ads should do that out of the box rather than
+  // wait to be asked. The checkbox exists to switch it off if it misfires.
+  hideUnlabeledAds: true,
   placeholderMode: false,
 };
 
@@ -1370,6 +1376,7 @@ function buildDiagnostics() {
     reveals: revealScans,
     lateText: lateTextLabels,
     rescued: rescuedLabels,
+    unlabeled: unlabeledAdsHidden,
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -1521,6 +1528,9 @@ let lateTextLabels = 0;
 // note in the observer. Non-zero means Facebook is deleting labels faster than
 // an async callback can read them, which is invisible any other way.
 let rescuedLabels = 0;
+// Posts hidden by shape rather than by label. If this is climbing while the
+// user reports missing posts, that rule is the first thing to switch off.
+let unlabeledAdsHidden = 0;
 
 function rememberLabelTarget(el) {
   if (!el.id) return;
@@ -1612,6 +1622,78 @@ function reportStats(now) {
   stats.reportedAt = now;
 }
 
+// --- Ads Facebook does not label in the DOM ---------------------------------
+//
+// Some feed ads carry no readable label at all. Measured on 2026-09-11: the
+// byline is an anchor wrapping an EMPTY span whose accessible name comes from a
+// node deleted immediately afterwards, so the word "Ad" renders on screen while
+// existing nowhere in the document. Eleven text and attribute routes were tried
+// against it; DESKTOP-AD-LABELS.md records each and why it failed.
+//
+// What such a card does have is a shape, and it takes two signals together:
+//
+//   1. A DANGLING aria-labelledby in the card - a reference to a label that is
+//      neither live nor cached. An organic post's byline reference resolves, to
+//      a timestamp like "about an hour ago".
+//   2. NO permalink. A real post links to itself (/name/posts/pfbid...); an ad
+//      links only to the advertiser's page and out through /l.php.
+//
+// Either alone is too weak. A post whose timestamp label happened to be swept
+// would match the first; plenty of cards lack a permalink in some states. Both
+// together matched every ad seen and no organic post seen - but "seen" is a few
+// dozen cards on one account, which is why this is off by default and worded in
+// the popup as something that may occasionally hide a real post.
+const PERMALINK_RE = /\/(posts|permalink|videos|photo|reel|watch)([\/?]|$)/;
+
+function hasDanglingByline(card) {
+  for (const el of card.querySelectorAll("[aria-labelledby]")) {
+    for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+      if (!id) continue;
+      const target = document.getElementById(id);
+      const text = target
+        ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
+        : labelTextById.get(id);
+      if (!text) return true;
+    }
+  }
+  return false;
+}
+
+function hasPermalink(card) {
+  for (const a of card.querySelectorAll("a[href]")) {
+    const href = a.getAttribute("href") || "";
+    if (!href || href === "#") continue;
+    let path = href;
+    try {
+      path = new URL(href, location.origin).pathname;
+    } catch (e) {
+      /* keep the raw value */
+    }
+    if (PERMALINK_RE.test(path)) return true;
+  }
+  return false;
+}
+
+function sweepUnlabeledAds(root) {
+  if (!settings.hideUnlabeledAds || !settings.hideSponsored) return;
+  // Desktop only. The mobile feed is virtualised and its cards are governed by
+  // rules measured separately - see MOBILE-VIRTUALISATION.md.
+  if (isMobileLayout()) return;
+  if (!root.querySelectorAll) return;
+
+  for (const card of root.querySelectorAll("div")) {
+    const r = card.getBoundingClientRect();
+    if (r.width < FEED_POST_MIN_WIDTH || r.width > FEED_POST_MAX_WIDTH) continue;
+    if (r.height < FEED_POST_MIN_HEIGHT || r.height > UNHIDDEN_MAX_HEIGHT) continue;
+    if (hiddenPosts.has(card)) continue;
+    if (card.closest("[data-fbsb-hidden]")) continue;
+    if (!hasDanglingByline(card)) continue;
+    if (hasPermalink(card)) continue;
+    unlabeledAdsHidden += 1;
+    hidePost(card, "sponsored", card);
+  }
+}
+
 function scanRoot(root) {
   if (!settings.hideSponsored && !settings.hideSuggested && !settings.hideUnfollowed) return;
   if (root.nodeType !== Node.ELEMENT_NODE) return;
@@ -1625,6 +1707,8 @@ function scanRoot(root) {
     stats.elements += found.length;
     found.forEach(processLabel);
   }
+  sweepUnlabeledAds(root);
+
   const finishedAt = performance.now();
   stats.ms += finishedAt - startedAt;
   stats.scans += 1;
@@ -1850,6 +1934,11 @@ browser.storage.onChanged.addListener((changes, area) => {
   if (changes.hideAppBanner) {
     settings.hideAppBanner = changes.hideAppBanner.newValue;
     if (!settings.hideAppBanner) restoreByReason("appbanner");
+    else shouldRescan = true;
+  }
+  if (changes.hideUnlabeledAds) {
+    settings.hideUnlabeledAds = changes.hideUnlabeledAds.newValue;
+    if (!settings.hideUnlabeledAds) restoreByReason("sponsored");
     else shouldRescan = true;
   }
   if (changes.placeholderMode) {

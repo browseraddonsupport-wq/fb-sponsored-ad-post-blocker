@@ -132,6 +132,15 @@ CONTENT_JS
     host.innerHTML = f.card;
     chain.appendChild(host);
 
+    // Some rules are off by default - the shape-based one that can hide a real
+    // post, for instance - so a fixture can switch them on for itself.
+    //
+    // Reset to defaults FIRST. Without it an override leaks into every later
+    // fixture: the guard proving the shape rule is off by default was itself
+    // run with the rule left on by the fixture before it, and failed.
+    Object.assign(settings, DEFAULT_SETTINGS);
+    if (f.settings) Object.assign(settings, f.settings);
+
     // Drive the same two steps the MutationObserver performs, rather than
     // waiting on it. scheduleScan defers through requestAnimationFrame, which
     // does not fire reliably in a background or hidden tab - the first runs of

@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.70
+
+### Added
+
+- **Ads Facebook does not label are now hidden.** Some feed ads carry no
+  readable label at all: the byline is an anchor wrapping an empty span whose
+  accessible name comes from a node deleted immediately after use, so "Ad"
+  renders on screen while existing nowhere in the document. Eleven text and
+  attribute routes were measured against it and all failed — see
+  `DESKTOP-AD-LABELS.md`.
+
+  Such a card is identified by shape instead, and it takes **two** signals
+  together:
+
+  1. **A dangling `aria-labelledby`** — a byline reference to a label that is
+     neither live nor cached. An organic post's resolves, to a timestamp.
+  2. **No permalink.** A real post links to itself
+     (`/name/posts/pfbid…`); these link only to the advertiser and out through
+     `/l.php`.
+
+  Either alone is too weak. Both together matched every ad observed and no
+  organic post observed.
+
+- **On by default**, with a checkbox to switch it off. This is the only rule
+  that infers rather than reads, so it is the only one that can hide a real
+  post — but an extension whose purpose is hiding ads should do it out of the
+  box. If a real post ever disappears, unchecking **"Hide ads Facebook doesn't
+  label"** is the first thing to try, and a fixture guarantees that switch
+  actually works.
+
+- The panel reports `by-shape`, counting posts hidden this way. If it climbs
+  while posts seem to be going missing, that rule is the cause.
+
+### Verified
+
+19 fixtures, six of them false-positive guards — including a post that has a
+dangling byline reference *and* a permalink, which must stay visible, and one
+asserting the rule is genuinely disabled when unchecked.
+
+Two bugs were caught building it: a `` that became a literal backspace in the
+permalink pattern, and settings leaking between fixtures so the guard was
+running with the rule left on by the previous test.
+
 ## 1.1.69
 
 ### Added

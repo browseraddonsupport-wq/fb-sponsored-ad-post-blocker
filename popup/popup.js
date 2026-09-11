@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   hideSuggested: true,
   hideUnfollowed: true,
   hideAppBanner: true,
+  hideUnlabeledAds: true,
   placeholderMode: false,
 };
 
@@ -14,6 +15,7 @@ const hideSponsoredEl = document.getElementById("hideSponsored");
 const hideSuggestedEl = document.getElementById("hideSuggested");
 const hideUnfollowedEl = document.getElementById("hideUnfollowed");
 const hideAppBannerEl = document.getElementById("hideAppBanner");
+const hideUnlabeledAdsEl = document.getElementById("hideUnlabeledAds");
 const placeholderModeEl = document.getElementById("placeholderMode");
 const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
@@ -31,6 +33,7 @@ function save() {
     hideSuggested: hideSuggestedEl.checked,
     hideUnfollowed: hideUnfollowedEl.checked,
     hideAppBanner: hideAppBannerEl.checked,
+    hideUnlabeledAds: hideUnlabeledAdsEl.checked,
     placeholderMode: placeholderModeEl.checked,
   });
 }
@@ -78,6 +81,7 @@ async function init() {
   hideSuggestedEl.checked = settings.hideSuggested;
   hideUnfollowedEl.checked = settings.hideUnfollowed;
   hideAppBannerEl.checked = settings.hideAppBanner;
+  hideUnlabeledAdsEl.checked = settings.hideUnlabeledAds;
   placeholderModeEl.checked = settings.placeholderMode;
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -109,7 +113,7 @@ async function showDiagnostics(tabId) {
     `body: ${d.bodyClass || "(none)"}`,
     `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
     `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
-    `late-text ${d.lateText == null ? "?" : d.lateText}  rescued-from-removal ${d.rescued == null ? "?" : d.rescued}`,
+    `late-text ${d.lateText == null ? "?" : d.lateText}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];
@@ -187,7 +191,7 @@ copyDiagnosticsEl.addEventListener("click", () => {
   );
 });
 
-[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, placeholderModeEl].forEach((el) =>
+[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, hideUnlabeledAdsEl, placeholderModeEl].forEach((el) =>
   el.addEventListener("change", save)
 );
 
