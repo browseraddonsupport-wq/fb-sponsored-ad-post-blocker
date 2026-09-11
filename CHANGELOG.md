@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.74
+
+The audit list added in 1.1.73 did its job on the first reading. Of 36 posts
+hidden by shape, 32 were unmistakably advertisers. The rest were not posts at
+all.
+
+### Fixed
+
+- **The stories tray was being hidden.** It sits at the top of the feed at
+  exactly feed width, so it passed the shape rule's size test, and the audit
+  list caught it twice as `Online status indicatorActive -> /stories/…`. A post
+  links to at most one story; the tray links to every one of them, and that is
+  now the test.
+
+- **So were Facebook's empty spacers.** The boxes left behind holding a scroll
+  position are feed-width and several hundred pixels tall — `els=12 a=0 img=0
+  text=0` in the panel. A candidate must now have something to say (40
+  characters) before a rule that infers rather than reads gets a say on it.
+  This also accounts for both `(no byline link)` entries in that list.
+
+- **"Still showing" was counting those spacers too.** It read 25 when several
+  of them were empty boxes, which made the feed look far less filtered than it
+  was. Empty boxes are no longer counted as posts.
+
+### Verified
+
+28 fixtures, twelve of them false-positive guards. Two are new — the stories
+tray and an empty spacer — and every fixture now carries a realistic amount of
+body text, because the new "looks like a post" test would otherwise have been
+satisfied by nothing and the suite would have passed without exercising it.
+
 ## 1.1.73
 
 A screenshot of a "Sponsored" card that was still visible — National Geographic

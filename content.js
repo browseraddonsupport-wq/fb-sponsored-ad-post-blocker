@@ -1226,9 +1226,13 @@ function surveyFeedCards() {
   }
   // Keep only the outermost of each nested run, so one card counts once.
   const outer = candidates.filter((el) => !candidates.some((o) => o !== el && o.contains(el)));
-  const visible = outer.filter(
-    (el) => !el.querySelector("[data-fbsb-hidden]") && !el.closest("[data-fbsb-hidden]")
-  );
+  const visible = outer
+    .filter((el) => !el.querySelector("[data-fbsb-hidden]") && !el.closest("[data-fbsb-hidden]"))
+    // Not posts: boxes Facebook leaves behind holding a scroll position. They
+    // are feed-width and several hundred pixels tall, so they counted, and
+    // "still showing: 25" read as 25 unblocked ads when several were empty.
+    // Reported as els=12 a=0 img=0 text=0 once the panel learned to say so.
+    .filter((el) => el.querySelectorAll("a[href]").length > 0 || (el.textContent || "").trim().length > 0);
   // Every ad seen on 2026-09-11 carried a DANGLING aria-labelledby in its
   // byline - a reference to a label Facebook deletes after computing the
   // accessible name - while an organic post's byline reference resolves to a
@@ -1797,6 +1801,27 @@ function cardFromLabelRef(el) {
 // that has started eating posts, and the count alone cannot tell those apart.
 // A name and a link each is enough: a friend's name in this list is the
 // answer, immediately.
+// Feed-width and feed-height is not the same as "a post". The stories tray sits
+// at the top of the feed at exactly the same width, and the audit list caught
+// the rule taking it: "Online status indicatorActive -> /stories/1221077...",
+// twice. Facebook also leaves empty boxes holding a scroll position where a
+// post used to be - the panel reported two at els=12 a=0 img=0 text=0.
+//
+// Neither is a post, and neither should ever have been a candidate. A post has
+// something to say and exactly one subject; the tray has many and the spacer
+// has none.
+const POST_MIN_TEXT = 40;
+
+function looksLikePost(card) {
+  if ((card.textContent || "").trim().length < POST_MIN_TEXT) return false;
+  // More than one story link means the tray, not a post that links to a story.
+  let storyLinks = 0;
+  for (const a of card.querySelectorAll('a[href*="/stories/"]')) {
+    if (++storyLinks > 1) return false;
+  }
+  return true;
+}
+
 const MAX_SHAPE_AUDIT = 20;
 const shapeHides = [];
 
@@ -1854,6 +1879,7 @@ function sweepUnlabeledAds(root) {
     if (hiddenPosts.has(card)) return;
     if (card.closest("[data-fbsb-hidden]")) return;
     if (hasPermalink(card)) return;
+    if (!looksLikePost(card)) return;
     unlabeledAdsHidden += 1;
     if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));
     hidePost(card, "sponsored", card);

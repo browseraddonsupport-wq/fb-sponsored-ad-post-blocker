@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. The stories tray sits at the top of the feed at exactly feed width, so it passed the shape rule's size test. The 1.1.73 audit list caught it being hidden twice, as 'Online status indicatorActive -> /stories/1221077...'. A post links to at most one story; the tray links to every one of them.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:400px\"><a href=\"/stories/12210771192254369\"><span>Online status indicator</span><span>Active</span></a><a href=\"/stories/110370044448846\"><span>Online status indicator</span><span>Active</span></a><a href=\"https://scontent.example/thumb.jpg\"><span>Create story</span></a><span>Stories from people you follow, updated through the day</span></div></div></div>"
+}

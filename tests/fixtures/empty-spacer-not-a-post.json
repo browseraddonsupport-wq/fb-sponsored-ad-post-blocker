@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. Facebook leaves feed-width boxes behind holding a scroll position - the panel reported two at els=12 a=0 img=0 text=0. They are not posts, so the rule that infers 'ad' from shape must not get a say on them however ad-shaped their dimensions are.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:800px\"><div><span aria-labelledby=\"_r_none_\"></span></div><a href=\"https://external.example/x\"></a></div></div></div>"
+}
