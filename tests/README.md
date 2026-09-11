@@ -68,6 +68,24 @@ rather than into the card.
 posts is worse than detection that misses ads, and those guards are the only
 thing standing between a broad heuristic and a hidden friend.
 
+## A fixture is only worth what its fidelity is worth
+
+The first `scrambled-sponsored` fixture here was **invented**, and it failed —
+which looked like it had caught the live bug. It had not. It gave real
+characters 3 classes and decoys 9, both below `HONEYPOT_LEAF_CLASS_COUNT`
+(10), so no partition in `classifyLabel` could ever separate them. The code was
+being asked to do something impossible.
+
+With the ratio `content.js` actually documents — real ~22 classes, decoys ~7 —
+the same fixture passes, in both polarities.
+
+So the two live cards seen on 2026-09-11 remain **unexplained**. They differ
+from the documented structure somehow, and a fixture written from imagination
+cannot show how. When an ad next gets through, capture the real markup with the
+snippet above rather than guessing at its shape; a fixture that fails for the
+wrong reason is worse than no fixture, because it invites a fix to a bug that
+is not there.
+
 ## Things the harness does not cover
 
 - **The MutationObserver's own wiring.** The runner calls `cacheLabelTargets`
