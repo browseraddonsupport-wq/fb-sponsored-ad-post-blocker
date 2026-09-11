@@ -1161,22 +1161,47 @@ function noteHiddenSample(container, reason) {
 // whatever element Facebook wraps it in this week.
 //
 // Costs nothing until the panel is opened.
-const UNHIDDEN_SAMPLE_LIMIT = 3;
+const UNHIDDEN_SAMPLE_LIMIT = 4;
 const UNHIDDEN_MIN_HEIGHT = 200;
 const UNHIDDEN_MIN_WIDTH = 300;
 
-function sampleUnhiddenPosts() {
-  const out = [];
+// Counted across the WHOLE feed, not just what is on screen. The first version
+// of this restricted itself to the viewport and reported three cards, which
+// made "no unhidden ads" mean "none in the visible window" while a page full of
+// them scrolled past above and below. A diagnostic that samples a keyhole and
+// reads like a summary is worse than none.
+function surveyFeedCards() {
   const candidates = [];
   for (const el of document.querySelectorAll("div")) {
     const r = el.getBoundingClientRect();
     if (r.height < UNHIDDEN_MIN_HEIGHT || r.width < UNHIDDEN_MIN_WIDTH) continue;
-    if (r.bottom < 0 || r.top > window.innerHeight) continue;
-    if (el.querySelector("[data-fbsb-hidden]") || el.closest("[data-fbsb-hidden]")) continue;
     candidates.push(el);
   }
-  // Keep only the outermost of each nested run, so one card reports once.
+  // Keep only the outermost of each nested run, so one card counts once.
   const outer = candidates.filter((el) => !candidates.some((o) => o !== el && o.contains(el)));
+  const hidden = [];
+  const visible = [];
+  for (const el of outer) {
+    if (el.querySelector("[data-fbsb-hidden]") || el.closest("[data-fbsb-hidden]")) {
+      hidden.push(el);
+    } else {
+      visible.push(el);
+    }
+  }
+  return { total: outer.length, hidden: hidden.length, visible };
+}
+
+function sampleUnhiddenPosts() {
+  const out = [];
+  const survey = surveyFeedCards();
+  // Prefer cards on screen - they are the ones being complained about - but
+  // fall back to the rest of the page rather than reporting nothing.
+  const onScreen = survey.visible.filter((el) => {
+    const r = el.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  });
+  const offScreen = survey.visible.filter((el) => !onScreen.includes(el));
+  const outer = onScreen.concat(offScreen);
 
   for (const el of outer.slice(0, UNHIDDEN_SAMPLE_LIMIT)) {
     const r = el.getBoundingClientRect();
@@ -1324,6 +1349,7 @@ function buildDiagnostics() {
       : "not identified",
     samples: diagSamples,
     unhidden: sampleUnhiddenPosts(),
+    survey: (() => { const v = surveyFeedCards(); return { total: v.total, hidden: v.hidden, visible: v.visible.length }; })(),
   };
 }
 

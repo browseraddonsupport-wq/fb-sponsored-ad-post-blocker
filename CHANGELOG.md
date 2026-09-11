@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.1.66
+
+### Fixed
+
+- **The diagnostics panel was reporting a keyhole and reading like a summary.**
+  `sampleUnhiddenPosts` only examined cards **in the viewport**, capped at
+  three. So "no unhidden ads" meant "none among three cards currently on
+  screen", while a page full of them scrolled past above and below.
+
+  Several readings across this investigation looked clean for exactly that
+  reason. The user was looking at the page; the panel was looking at a window
+  roughly one post tall.
+
+  It now surveys every post-sized card in the feed and reports the totals:
+
+  ```
+  feed cards on page: 31   hidden by us: 16   not hidden: 15
+  ```
+
+  Detailed samples still prefer on-screen cards, since those are the ones being
+  complained about, but fall back to the rest of the page rather than reporting
+  nothing. The sample header says how many of the total it is showing.
+
+### Why this matters beyond the numbers
+
+Every "it looks clean" conclusion drawn from this panel needs re-reading in
+that light. A diagnostic whose scope is narrower than its wording is worse than
+no diagnostic, because it produces confident wrong answers — which is precisely
+what it was built to stop.
+
 ## 1.1.65
 
 ### Added

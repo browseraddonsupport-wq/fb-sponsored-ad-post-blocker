@@ -136,8 +136,18 @@ async function showDiagnostics(tabId) {
 
   // The cards on screen we did NOT hide, and the small texts inside them. If an
   // ad is visible, its label is in one of these lines - whatever element it is.
+  // The whole feed, not just the screen. "no unhidden ads" from a three-card
+  // viewport sample was how several readings looked clean while the page was
+  // full of them.
+  if (d.survey) {
+    lines.push(
+      "",
+      `feed cards on page: ${d.survey.total}   hidden by us: ${d.survey.hidden}   not hidden: ${d.survey.visible}`
+    );
+  }
+
   if (d.unhidden && d.unhidden.length) {
-    lines.push("", "VISIBLE, NOT HIDDEN:");
+    lines.push("", `NOT HIDDEN (showing ${d.unhidden.length} of ${d.survey ? d.survey.visible : "?"}):`);
     d.unhidden.forEach((u, i) => {
       lines.push(`  #${i + 1} ${u.size} cls=${u.cls || "-"}`);
       lines.push(`     article=${u.role} posinset=${u.posinset} pagelet=${u.pagelet}`);
