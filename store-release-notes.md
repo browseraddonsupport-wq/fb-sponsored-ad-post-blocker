@@ -1,65 +1,63 @@
-# Store release notes — 1.1.50
+# Store release notes — 1.1.65
 
-Covers 1.1.39 through 1.1.50. 1.1.38 was the last version published before this
-span began. AMO is current at 1.1.50; the Chrome Web Store is behind, with a
-submission awaiting review. Written for the listing pages, not for developers;
-the technical record is in CHANGELOG.md.
+Covers 1.1.51 through 1.1.65. Written for the listing pages, not for
+developers; the technical record is in CHANGELOG.md, and the detection
+investigation is in DESKTOP-AD-LABELS.md.
 
 ---
 
 ## Who this span is actually for
 
-**Nothing here changes desktop behaviour.** All of it is mobile work plus
-diagnostics. Desktop was explicitly unchanged in 1.1.39 and re-verified against
-a live feed, and every mobile code path since is gated on the mobile layout.
+**This one is mostly desktop**, unlike 1.1.39-1.1.50 which was all mobile.
 
-- **Firefox (AMO) — the whole point.** Firefox for Android installs extensions
-  from AMO, and those users go from "hides nothing at all" to a working
-  filtered feed. Desktop Firefox users get nothing they will notice.
-- **Chrome Web Store — nothing observable for its users.** Chrome on Android
-  does not support extensions, and desktop Chrome is served the desktop layout,
-  so no Chrome user can reach the code paths this span adds. Worth submitting
-  only to keep the two stores on the same version. Notes are drafted below for
-  when the pending review clears.
+- **Firefox (AMO) — worth submitting.** It fixes a startup fault that could
+  leave the extension doing nothing at all on a page load, and catches several
+  ad formats that were getting through. Both affect desktop and mobile users.
+- **Chrome Web Store — same code, same benefit.** The startup fix and the
+  detection work apply there too, so unlike the previous span this one is worth
+  shipping to both.
 
 ### The honest short version
 
-Mobile support was announced in 1.1.39 and **did not actually work until
-1.1.50.** Four releases claimed it, because each was validated against a
-desktop browser pretending to be a phone — which serves the same page but does
-not behave the same way. It was fixed only after testing on a real device.
+Some ads still get through, and will continue to. Facebook has begun rendering
+the "Ad" label so it appears on screen while existing nowhere in the page's
+text — not obfuscated, absent. Eleven detection mechanisms were tried and
+measured against it; `DESKTOP-AD-LABELS.md` records each one and why it failed,
+so the next attempt starts from evidence rather than from scratch.
 
-Worth remembering before writing "now works on mobile" anywhere again.
+The remaining option is a shape heuristic (advertiser domain + call-to-action +
+a byline link with no path). It is deliberately not implemented: it would also
+match a friend sharing a news article, and hiding a real post is worse than
+missing an ad.
 
----
+Do not claim in any listing that ads are fully blocked.
 
 ## Firefox (AMO) — "Release Notes" field
 
-Filtering now works properly on Facebook's mobile site.
+Fixes a bug that could stop the extension working entirely, and catches several
+kinds of ad it previously missed.
 
-- **On a phone, posts are now actually hidden as you scroll.** Earlier versions
-  installed and looked fine on Android but filtered little or nothing beyond
-  the first screenful. Sponsored posts, ads, "Suggested for you" and posts from
-  Pages you don't follow are now hidden throughout the feed.
-- **Hidden posts leave a blank space on phones.** This is deliberate. Facebook
-  loads its mobile feed in batches, and it stops loading more if the page
-  shrinks underneath it — so a hidden post keeps its space and simply shows
-  nothing. Removing that space stops your feed loading, which is worse.
-- **Hide the mobile "Open app" bar** — a setting for the bar Facebook pins to
-  the bottom of the screen pushing you into its app. On by default, and it has
-  no effect on a computer.
-- **A Diagnostics section in the popup**, collapsed by default. It reports what
-  the extension is seeing and doing on the current page. Only useful if
-  something looks wrong — phones have no developer console, and this is the
-  only way to see what happened.
-- **Nothing changes on desktop.** If you only use Firefox on a computer, this
-  update makes no visible difference.
+- **The extension sometimes did nothing at all.** On some page loads it started
+  before Facebook's page was ready, stopped with an error you would never see,
+  and then sat there looking perfectly healthy — settings on, permission
+  granted, nothing hidden. This is fixed, and it is the most important change
+  here.
+- **More ads are caught.** Facebook labels ads in several different ways, and
+  some of them were slipping past: labels drawn as graphics, labels sitting
+  next to an icon, labels that vanish a fraction of a second after the page
+  uses them, and ad posts with no structure the extension could attach to.
+- **Nothing changes on desktop for what you have chosen to hide.** The
+  settings, the placeholder option and the badge all behave as before.
 
-Known limitations: ads in the right-hand column on desktop are detected but not
-yet hidden. English-language labels only. On phones, hidden posts leave blank
-space, as above.
+Known limitations: some ads are still not hidden. Facebook has begun rendering
+the "Ad" label so that it appears on screen without existing in the page's text
+at all, and there is currently no reliable way to detect those without also
+risking hiding ordinary posts — which would be worse. Ads in the right-hand
+column are detected but not hidden. English-language labels only. On phones,
+hidden posts leave a blank space; collapsing it stops the feed loading.
 
 ---
+
 
 ## Chrome Web Store — "What's new" (short field)
 
