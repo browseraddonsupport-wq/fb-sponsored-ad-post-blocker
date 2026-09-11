@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.69
+
+### Added
+
+- **The panel now measures whether a dangling byline reference identifies an
+  ad.** Every ad observed on 2026-09-11 carried one: an `aria-labelledby` in its
+  byline pointing at a label Facebook deletes once the accessible name has been
+  computed. An organic post's byline reference resolves — to a timestamp, e.g.
+  `by#_r_2dg_->"about an hour ago"`.
+
+  If that split holds across a whole feed, it is a structural signal tied to
+  the exact mechanism that hides the word "Ad" — and a far better one than the
+  domain-plus-CTA shape heuristic, which would also match a friend sharing a
+  news article.
+
+  ```
+  feed posts hidden: 14   still showing: 11
+    of those showing: 7 have a DANGLING byline ref, 4 resolve cleanly
+  ```
+
+- **It is counted, not acted on.** Nothing is hidden on the strength of it yet.
+  Detection that hides a friend's post is worse than detection that misses an
+  ad, so the split gets measured on a real feed before any code depends on it.
+
+### What to look for
+
+A clean split — dangling on the ads, resolving on the friends' posts — means
+this can be implemented behind the existing `expect: visible` fixture guards. A
+muddy one means organic posts drop their byline labels too, and the idea should
+be abandoned rather than tuned.
+
 ## 1.1.68
 
 ### Fixed

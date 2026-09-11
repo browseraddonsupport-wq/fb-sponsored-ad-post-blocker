@@ -142,7 +142,8 @@ async function showDiagnostics(tabId) {
   if (d.survey) {
     lines.push(
       "",
-      `feed posts hidden: ${d.survey.hidden}   feed-width posts still showing: ${d.survey.visible}`
+      `feed posts hidden: ${d.survey.hidden}   still showing: ${d.survey.visible}`,
+      `  of those showing: ${d.survey.dangling} have a DANGLING byline ref, ${d.survey.resolving} resolve cleanly`
     );
   }
 

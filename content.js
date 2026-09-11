@@ -1197,6 +1197,34 @@ function surveyFeedCards() {
   const visible = outer.filter(
     (el) => !el.querySelector("[data-fbsb-hidden]") && !el.closest("[data-fbsb-hidden]")
   );
+  // Every ad seen on 2026-09-11 carried a DANGLING aria-labelledby in its
+  // byline - a reference to a label Facebook deletes after computing the
+  // accessible name - while an organic post's byline reference resolves to a
+  // timestamp ("about an hour ago"). If that split holds across a whole feed it
+  // is a structural signal tied to the exact mechanism hiding the word "Ad".
+  //
+  // Counted, not acted on. Detection that hides a friend's post is worse than
+  // detection that misses an ad, so this ships as a measurement first.
+  let withDangling = 0;
+  let withResolving = 0;
+  for (const el of visible) {
+    let dangling = false;
+    let resolving = false;
+    for (const e of el.querySelectorAll("[aria-labelledby]")) {
+      for (const id of (e.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+        if (!id) continue;
+        const target = document.getElementById(id);
+        const text = target
+          ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
+          : labelTextById.get(id);
+        if (text) resolving = true;
+        else dangling = true;
+      }
+    }
+    if (dangling) withDangling += 1;
+    if (resolving && !dangling) withResolving += 1;
+  }
+
   return {
     // hiddenPosts is authoritative. A hidden post is display:none, so it has no
     // box, fails every size filter above and cannot be counted by looking at
@@ -1204,6 +1232,8 @@ function surveyFeedCards() {
     // us: 1" directly beneath a hidden count of 7.
     hidden: hiddenPosts.size,
     visible,
+    withDangling,
+    withResolving,
   };
 }
 
@@ -1367,7 +1397,12 @@ function buildDiagnostics() {
     unhidden: sampleUnhiddenPosts(),
     survey: (() => {
       const v = surveyFeedCards();
-      return { hidden: v.hidden, visible: v.visible.length };
+      return {
+        hidden: v.hidden,
+        visible: v.visible.length,
+        dangling: v.withDangling,
+        resolving: v.withResolving,
+      };
     })(),
   };
 }
