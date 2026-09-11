@@ -178,7 +178,7 @@ async function showDiagnostics(tabId) {
     // number that matters is h: if the chosen node is short and the one above
     // it is tall, the wrapper kept the space and the feed shows a gap.
     d.samples.forEach((s, i) => {
-      lines.push("", `#${i + 1} ${s.reason}`);
+      lines.push("", `#${i + 1} ${s.reason}${s.via ? " via " + s.via : ""}`);
       s.chain.forEach((n, depth) => {
         if (!n) return;
         lines.push(

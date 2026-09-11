@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "REGRESSION GUARD. The Wayfair and Goose Creek screenshots, and Great Rail Journeys straight from the panel - which listed one card under HIDDEN BY SHAPE and under NOT HIDDEN at the same time. The call-to-action sits twenty-odd elements below the card, so a climb capped at fourteen ran out of steps and kept the media block it passed on the way. Every fixture before this one was four levels deep, which is why none of them caught it.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:900px\"><div><a href=\"/wayfair\">Wayfair</a><span>&middot;</span><span><span></span></span></div><span>Don't let these items pass you by and enjoy free shipping on all orders over $35.</span><div style=\"width:680px;height:420px\"><div><div><div><div><div><div><div><div><div><div><div><div><div><div><div><div><a href=\"https://www.wayfair.com/sale\"><span>WAYFAIR.COM</span><span>Shop now</span></a></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div></div><span>3.3K</span><span>34</span></div></div></div>"
+}

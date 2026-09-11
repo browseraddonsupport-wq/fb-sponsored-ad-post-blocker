@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.1.76
+
+Ads still losing their picture and keeping everything else — Wayfair by
+screenshot, and Great Rail Journeys straight from the panel, which listed the
+same card under `HIDDEN BY SHAPE` *and* under `NOT HIDDEN`. 1.1.75 fixed the
+wrong half of this.
+
+### Fixed
+
+- **The climb ran out of steps.** It was capped at fourteen levels, and
+  Facebook nests a call-to-action block twenty-odd elements below the card, so
+  a climb starting at an outbound link never reached the card and kept whatever
+  fitted on the way up — the media block. Raised to thirty.
+
+  No fixture caught this because every fixture card was four levels deep. There
+  is one thirty levels deep now, and it failed before this change.
+
+- **Nothing enforced "hide whole cards".** Whatever route picks an element, if
+  it is feed-post width the thing to hide is the card, so the hide now walks up
+  until the next step would leave it.
+
+- **That walk could have taken the entire feed.** It stops when a parent holds
+  more than one card-shaped child — but a post that is already hidden has no
+  box, so a feed column with everything else hidden looks exactly like a single
+  card. On a short feed it would have hidden the lot. It now asks whether the
+  siblings *are* posts rather than whether they are visible. Found by the
+  harness, before it ever ran on a page.
+
+### Changed — test harness
+
+- **Fixtures now sit beside a neighbouring post.** The sixteen nesting wrappers
+  were indistinguishable from a card's own — each holding one child of the same
+  width — so the expand-to-card walk climbed out of the fixture and into the
+  harness itself. On a real page those wrappers belong to the card; here they
+  do not, and nothing said so.
+
+- The panel reports which rule made each hide (`via label` / `via shape`).
+  Both report "sponsored", so a partial hide looked identical whichever
+  produced it, and telling them apart took a screenshot and a guess.
+
+### Verified
+
+30 fixtures, twelve of them false-positive guards.
+
 ## 1.1.75
 
 ### Fixed

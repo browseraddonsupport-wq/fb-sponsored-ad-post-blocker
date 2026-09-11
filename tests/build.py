@@ -164,6 +164,18 @@ CONTENT_JS
     host.innerHTML = f.card;
     chain.appendChild(host);
 
+    // A second card-shaped element beside the fixture, so the bottom of the
+    // chain looks like the feed: a container holding more than one post.
+    // Without it the 16 nesting wrappers are indistinguishable from a card's
+    // own wrappers - each holds exactly one child of the same width - and the
+    // climb that expands a hide to the whole card walked straight out of the
+    // fixture and into the harness. On the real page those wrappers belong to
+    // the card; here they do not, and nothing said so.
+    var neighbour = document.createElement("div");
+    neighbour.style.cssText = "width:680px;height:400px";
+    neighbour.textContent = "a neighbouring post, so this container is a feed";
+    chain.appendChild(neighbour);
+
     // Some rules are off by default - the shape-based one that can hide a real
     // post, for instance - so a fixture can switch them on for itself.
     //
