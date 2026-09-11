@@ -29,6 +29,21 @@
 
   Whichever line carries "Ad" is what detection has to read.
 
+### Status as of 2026-09-11
+
+Desktop is reported working. No panel reading was captured while it was
+failing, so **which** of 1.1.51-1.1.56 fixed it is unknown, and it may simply be
+that Facebook's markup moved back. Treat the desktop cause as unexplained.
+
+That is different from mobile, where 1.1.50 rests on five one-variable
+experiments and a control test. Nothing here has that standing.
+
+If ads return: open the panel first, before changing anything. `matched` vs
+`anchored` separates detection from anchoring, and the `evidence:` line on an
+unhidden card says how its label is reachable. That reading is the thing this
+session never got, and it is what would let the next fix be chosen rather than
+guessed.
+
 ### Why a sixth release without a fix
 
 Because every fix since 1.1.51 was chosen from a console probe, and probes race
