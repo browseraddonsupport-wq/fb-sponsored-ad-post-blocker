@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.1.54
+
+### Added
+
+- **The diagnostics panel now reports what it is *missing*.** A `VISIBLE, NOT
+  HIDDEN` section lists the post-sized cards on screen that were not hidden,
+  with each card's dimensions, landmark attributes, and the short texts found
+  inside it:
+
+  ```
+  VISIBLE, NOT HIDDEN:
+    #1 680x783 role=- posinset=- pagelet=-
+       span:"Verkada" span:"Ad" span:"See more" span:"Like"
+  ```
+
+  Three releases in a row were aimed at ads that stayed visible, each built on
+  a plausible reading of a console probe, and none of them landed. The reason
+  is in the numbers from an earlier run: of 128 label nodes recorded over 40
+  seconds, **125 were deleted by Facebook** before they could be examined
+  again. Every `querySelectorAll` probe sampled an instant of that, and five
+  consecutive probes gave five different answers.
+
+  Reporting from inside the content script is not subject to that race. It sees
+  the same document the scan sees, and it says what the label element actually
+  is — whatever Facebook wraps it in this week — instead of requiring a guess.
+
+  Computed only when the panel is opened, so it costs nothing during browsing.
+
+### Why this instead of another fix
+
+`matched 10, anchored 10` on 1.1.53 means everything recognised is being
+hidden, so the ads getting through are not being recognised at all. Nothing in
+the panel could say why, because it only described what the extension *did*.
+This closes that gap before any further attempt at the cause.
+
 ## 1.1.53
 
 ### Fixed

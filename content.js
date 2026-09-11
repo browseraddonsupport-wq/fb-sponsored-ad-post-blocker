@@ -1030,6 +1030,55 @@ function noteHiddenSample(container, reason) {
   diagSamples.push({ reason, chain });
 }
 
+// What does a post we FAILED to hide actually look like? Every attempt to
+// answer that from the page console raced a DOM that deletes its own labels
+// within moments - 125 of 128 label nodes vanished inside 40 seconds on a live
+// feed, so five consecutive probes gave five different answers.
+//
+// Answering from in here is not subject to that: it runs on demand when the
+// popup asks, sees the same document the scan sees, and reports the small
+// leaf texts inside each unhidden card - which is where "Ad"/"Sponsored" lives
+// whatever element Facebook wraps it in this week.
+//
+// Costs nothing until the panel is opened.
+const UNHIDDEN_SAMPLE_LIMIT = 3;
+const UNHIDDEN_MIN_HEIGHT = 200;
+const UNHIDDEN_MIN_WIDTH = 300;
+
+function sampleUnhiddenPosts() {
+  const out = [];
+  const candidates = [];
+  for (const el of document.querySelectorAll("div")) {
+    const r = el.getBoundingClientRect();
+    if (r.height < UNHIDDEN_MIN_HEIGHT || r.width < UNHIDDEN_MIN_WIDTH) continue;
+    if (r.bottom < 0 || r.top > window.innerHeight) continue;
+    if (el.querySelector("[data-fbsb-hidden]") || el.closest("[data-fbsb-hidden]")) continue;
+    candidates.push(el);
+  }
+  // Keep only the outermost of each nested run, so one card reports once.
+  const outer = candidates.filter((el) => !candidates.some((o) => o !== el && o.contains(el)));
+
+  for (const el of outer.slice(0, UNHIDDEN_SAMPLE_LIMIT)) {
+    const r = el.getBoundingClientRect();
+    const labels = [];
+    for (const leaf of el.querySelectorAll("*")) {
+      if (labels.length >= 10) break;
+      if (leaf.children.length) continue;
+      const t = (leaf.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
+      if (!t || t.length > 20) continue;
+      labels.push(`${leaf.tagName.toLowerCase()}:"${t}"`);
+    }
+    out.push({
+      size: `${Math.round(r.width)}x${Math.round(r.height)}`,
+      role: el.getAttribute("role") || "-",
+      posinset: el.getAttribute("aria-posinset") || "-",
+      pagelet: el.getAttribute("data-pagelet") || "-",
+      labels,
+    });
+  }
+  return out;
+}
+
 function buildDiagnostics() {
   const mobile = isMobileLayout();
   return {
@@ -1073,6 +1122,7 @@ function buildDiagnostics() {
       ? `watching ${mobileFeed.children.length} children (reveal margin ${REVEAL_MARGIN})`
       : "not identified",
     samples: diagSamples,
+    unhidden: sampleUnhiddenPosts(),
   };
 }
 

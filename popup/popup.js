@@ -134,6 +134,16 @@ async function showDiagnostics(tabId) {
     );
   }
 
+  // The cards on screen we did NOT hide, and the small texts inside them. If an
+  // ad is visible, its label is in one of these lines - whatever element it is.
+  if (d.unhidden && d.unhidden.length) {
+    lines.push("", "VISIBLE, NOT HIDDEN:");
+    d.unhidden.forEach((u, i) => {
+      lines.push(`  #${i + 1} ${u.size} role=${u.role} posinset=${u.posinset} pagelet=${u.pagelet}`);
+      lines.push(`     ${u.labels.join(" ") || "(no short texts)"}`);
+    });
+  }
+
   if (!d.samples.length) {
     lines.push("", "no posts hidden yet — nothing to sample");
   } else {
