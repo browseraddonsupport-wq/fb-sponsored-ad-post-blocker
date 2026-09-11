@@ -1193,7 +1193,16 @@ function sampleUnhiddenPosts() {
         const text = target
           ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
           : labelTextById.get(id);
-        if (text && text.length <= 25) evidence.push(`by#${id}->"${text}"`);
+        if (text && text.length <= 25) {
+          evidence.push(`by#${id}->"${text}"`);
+        } else if (!text) {
+          // A reference whose target is gone AND was never cached. Silently
+          // skipping these made a card look label-less when in fact it points
+          // at a label we never saw - a very different problem, and the one
+          // 125-of-128 label deletions would produce. Facebook removes these
+          // spans moments after the accessible name is computed.
+          evidence.push(`by#${id}->MISSING`);
+        }
       }
     }
     for (const e of el.querySelectorAll("[aria-label]")) {

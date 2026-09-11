@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.60
+
+### Added
+
+- **Dangling `aria-labelledby` references are now reported.** The evidence line
+  silently skipped any reference whose target resolved to nothing, so a card
+  pointing at a label we never saw looked identical to a card with no label at
+  all. Those are very different problems.
+
+  A Boursin Cheese ad (2026-09-11) reported `matched 9, anchored 9` — no
+  anchoring gap, so its label was never matched — and an evidence line with no
+  `by#…` entry at all, while a North Face ad minutes earlier showed
+  `by#_r_29u_->"Ad"`. The difference is almost certainly that Facebook had
+  already deleted the Boursin span, and it was never cached.
+
+  Such references now print `by#<id>->MISSING`, which distinguishes "this card
+  has no label" from "this card points at a label that no longer exists".
+
+### Why this matters more than it looks
+
+A recorder on a live feed measured **125 of 128 label nodes deleted within 40
+seconds**. `labelTextById` exists precisely so an ephemeral label survives long
+enough to be useful, and `rememberLabelTarget` resolves forward the moment it
+sees one. If a card is pointing at an id that is neither live nor cached, the
+extension never observed that span at all — and no amount of work on detection
+or anchoring addresses that.
+
+Note the constraint on any fix: `processLabel` must **not** queue elements
+merely for carrying an unresolvable `aria-labelledby`. That was tried in 1.1.30
+and froze the feed — a 300-post feed carries roughly 1,800 such elements.
+
 ## 1.1.59
 
 ### Fixed
