@@ -1,5 +1,5 @@
 {
   "expect": "visible",
   "why": "FALSE POSITIVE GUARD. An ordinary post's byline links to its own permalink, not /ads/about/.",
-  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><h2>Barry Ridenour</h2><a href=\"/barry/posts/12345\"><span>2h</span></a><span>&middot;</span><span>Great weekend at the lake</span></div></div></div>"
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><h2>A Friend</h2><a href=\"/barry/posts/12345\"><span>2h</span></a><span>&middot;</span><span>Great weekend at the lake</span></div></div></div>"
 }

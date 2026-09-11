@@ -1,5 +1,5 @@
 {
   "expect": "visible",
   "why": "FALSE POSITIVE GUARD. A post whose body text links to an unrelated path containing the word ads must not match.",
-  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><h2>Sean Smith</h2><a href=\"/groups/adsandmarketing/posts/9\"><span>check this group</span></a><span>Like</span></div></div></div>"
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><h2>Another Friend</h2><a href=\"/groups/adsandmarketing/posts/9\"><span>check this group</span></a><span>Like</span></div></div></div>"
 }

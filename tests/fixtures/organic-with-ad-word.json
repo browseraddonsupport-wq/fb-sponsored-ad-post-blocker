@@ -1,5 +1,5 @@
 {
   "expect": "visible",
   "why": "FALSE POSITIVE GUARD. A post that merely mentions the word must not be hidden - only a bare label counts.",
-  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h2>Sean Smith</h2><span>I saw an Ad for this yesterday and laughed</span><span>Like</span></div></div></div></div></div>"
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h2>Another Friend</h2><span>I saw an Ad for this yesterday and laughed</span><span>Like</span></div></div></div></div></div>"
 }

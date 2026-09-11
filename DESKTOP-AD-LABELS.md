@@ -6,9 +6,9 @@ on desktop. Read this before attempting another detection mechanism.
 ## Where it stands
 
 Ads that carry an `/ads/about/` explainer link **are** detected and hidden
-(1.1.63). The Farmer's Dog, Coca-Cola and Yasso formats all fell to that.
+(1.1.63). Several ad formats fell to that.
 
-At least one format still gets through: a Power Crunch ad whose byline anchor
+At least one format still gets through: a another advertiser ad whose byline anchor
 has **no path at all** — `href="?__cft__[0]=…"`, query string only. Its label
 is not readable from the DOM by any mechanism tried.
 
@@ -47,8 +47,8 @@ Facebook renders both through the same story template, and keying off it hides
 the entire feed.
 
 Re-checked on 2026-09-11, when ads whose label is absent from the DOM made this
-look like the only remaining option. A local buy-sell group post — "Oakland
-County, MI Sell…" — reported:
+look like the only remaining option. An ordinary local buy-and-sell group
+post reported:
 
 ```
 ad-roles=profile_name,story_message,meta,title   ad-preview=yes   ads/about=no
@@ -77,8 +77,8 @@ lifetime and reports from inside the content script. Use it first:
 ## What is left, if anyone wants to continue
 
 **A shape heuristic, not a label.** Every one of these cards carries an
-uppercase advertiser domain (`POWERCRUNCH.COM`, `THEFARMERSDOG.COM`,
-`COCA-COLA.COM`) plus a CTA button ("Shop now", "Learn More"), and its byline
+uppercase advertiser domain (`<ADVERTISER>.COM`, `<ADVERTISER>.COM`,
+`<ADVERTISER>.COM`) plus a CTA button ("Shop now", "Learn More"), and its byline
 anchor has no path where an organic post links to its own permalink.
 
 This is deliberately **not** implemented. A post sharing a news article looks

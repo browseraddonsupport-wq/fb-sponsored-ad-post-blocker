@@ -1,5 +1,5 @@
 {
   "expect": "hidden",
-  "why": "Real markup from a The Farmer's Dog ad (2026-09-11). The byline label has NO text - an empty span whose accessible name comes from a deleted node - but the anchor points at /ads/about/.",
-  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><a href=\"/ads/about/?__cft__[0]=AZiFIy6\"><span><span aria-labelledby=\"_r_gone_\"><span></span></span></span></a><span>&middot;</span><span>THEFARMERSDOG.COM</span></div></div></div>"
+  "why": "Real markup from a an ad ad (2026-09-11). The byline label has NO text - an empty span whose accessible name comes from a deleted node - but the anchor points at /ads/about/.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><a href=\"/ads/about/?__cft__[0]=AZiFIy6\"><span><span aria-labelledby=\"_r_gone_\"><span></span></span></span></a><span>&middot;</span><span>ADVERTISER.COM</span></div></div></div>"
 }

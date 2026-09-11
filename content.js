@@ -240,7 +240,7 @@ function classifyLabel(el) {
     // beside a globe icon, which is how several feed ads are built. It is not a
     // leaf, so the branch above skips it; it is not character-split either, so
     // it used to fall through unread and the ad stayed visible. Observed live
-    // on 2026-09-11: a Yasso ad card whose panel entry had a span for the "·"
+    // on 2026-09-11: an ad card whose panel entry had a span for the "·"
     // separator, no "Ad" leaf anywhere, and no use/aria-labelledby route to one.
     //
     // Reading only this element's OWN text nodes is what keeps the leaf rule's
@@ -271,8 +271,8 @@ function classifyLabel(el) {
   // hard way; the attribute name is simply misleading.
   //
   // RE-VERIFIED 2026-09-11, after ads appeared whose label is not in the DOM at
-  // all and this looked like the only way left. A local buy-sell group post -
-  // "Oakland County, MI Sell..." - carried
+  // all and this looked like the only way left. An ordinary local buy-and-sell
+  // group post carried
   // data-ad-rendering-role=profile_name,story_message,meta,title AND
   // data-ad-preview. Still not an ad marker. data-ad-preview and
   // data-ad-comet-preview are no better; the same post had those too.
@@ -639,7 +639,7 @@ function findPostContainer(label, reason) {
   }
 
   // Last resort: no landmark anywhere above the label. Observed live on
-  // 2026-09-11 - a The North Face ad reported article=-, pagelet=- and its
+  // 2026-09-11 - an ad reported article=-, pagelet=- and its
   // aria-posinset as a *descendant* rather than an ancestor, so every strategy
   // above returned null. The panel showed it exactly: matched 47, anchored 46.
   // Detection was fine; there was simply nothing to hold on to.
@@ -1187,8 +1187,8 @@ function sampleUnhiddenPosts() {
       // Non-leaves are reported by their OWN text only, the same way
       // classifyLabel reads them since 1.1.57. Without this the report has the
       // identical blind spot the detector had, and an "Ad" sharing an element
-      // with an icon is invisible in both - which is exactly how the Yasso and
-      // Coca-Cola cards were able to look label-less.
+      // with an icon is invisible in both - which is exactly how several ad
+      // cards were able to look label-less.
       const own = leaf.children.length ? ownText(leaf) : leaf.textContent;
       if (!own) continue;
       const t = own.replace(INVISIBLE_CHARS_RE, "").trim();
@@ -1716,7 +1716,7 @@ function startObserving() {
   // documentElement, not body. A label span inserted outside <body> - directly
   // under <html> - is invisible to an observer rooted at body, however briefly
   // it lives, and these portal spans are page-level scratch nodes of exactly
-  // that kind. Observed 2026-09-11: a The Farmer's Dog ad whose card pointed at
+  // that kind. Observed 2026-09-11: an ad whose card pointed at
   // by#_r_18n_->MISSING, meaning the span was neither live nor ever cached,
   // while matched/anchored showed nothing had even been recognised.
   //

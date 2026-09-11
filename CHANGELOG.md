@@ -18,7 +18,7 @@
 
 `data-ad-rendering-role` is still **not** an ad marker, despite being all over
 these cards and looking ideal when nothing else was left. Measured on a live
-feed: a local buy-sell group post — "Oakland County, MI Sell…" — reported
+feed: an ordinary local buy-and-sell group post reported
 
 ```
 ad-roles=profile_name,story_message,meta,title   ad-preview=yes   ads/about=no
@@ -30,10 +30,9 @@ carries a 2026 date and this counter-example, in the code and in the doc.
 
 ### What this release does not do
 
-It does not hide ads whose label is absent from the page text — the Dyson and
-Power Crunch formats. `textContent` on a Dyson card reads
-`Dyson Verified account⁠  · Shared with Public…`: the icon titles are present
-and the word "Ad" simply is not. That is not obfuscation to see through; there
+It does not hide ads whose label is absent from the page text. Reading
+`textContent` on such a card gives `<advertiser> Verified account⁠  · Shared
+with Public…`: the icon titles are present and the word "Ad" simply is not. That is not obfuscation to see through; there
 is nothing there.
 
 The remaining option is a shape heuristic — advertiser domain, call-to-action,
@@ -50,8 +49,8 @@ taken.
   detects ads by their `/ads/about/` explainer link, so when a card survives the
   first question is simply whether it has one — and the panel could not say.
 
-  A Boxiecat card got through reporting `a:"Freya The Fluff"`, `span*:"and"`,
-  `a:"Boxiecat"` and `aria:"Freya The Fluff, view story"`. That is
+  A card got through reporting two author links joined by `span*:"and"`, and an
+  `aria:"…, view story"`. That is
   branded content — a creator's post promoting a brand — rather than a
   standard sponsored ad, and it may carry a different explainer or none at all.
   Rather than guess a seventh time, the report now shows the link paths.
@@ -64,7 +63,7 @@ taken.
 ### Fixed
 
 - **Ads are now detected by their "Why am I seeing this ad?" link.** Inspecting
-  a live The Farmer's Dog ad settled a question five releases had failed to
+  a live ad settled a question five releases had failed to
   answer. Its byline label is:
 
   ```html
@@ -144,7 +143,7 @@ problems with identical symptoms.
   was invisible to it however briefly it lived — and these portal spans are
   page-level scratch nodes of exactly that kind.
 
-  1.1.60's `MISSING` marker is what exposed it. A The Farmer's Dog ad reported:
+  1.1.60's `MISSING` marker is what exposed it. An ad reported:
 
   ```
   matched 10  anchored 10
@@ -187,11 +186,11 @@ Each needed a different fix — 1.1.57/1.1.58, 1.1.59, and this one.
   pointing at a label we never saw looked identical to a card with no label at
   all. Those are very different problems.
 
-  A Boursin Cheese ad (2026-09-11) reported `matched 9, anchored 9` — no
+  One ad (2026-09-11) reported `matched 9, anchored 9` — no
   anchoring gap, so its label was never matched — and an evidence line with no
-  `by#…` entry at all, while a North Face ad minutes earlier showed
+  `by#…` entry at all, while another ad minutes earlier showed
   `by#_r_29u_->"Ad"`. The difference is almost certainly that Facebook had
-  already deleted the Boursin span, and it was never cached.
+  already deleted the first one's span, and it was never cached.
 
   Such references now print `by#<id>->MISSING`, which distinguishes "this card
   has no label" from "this card points at a label that no longer exists".
@@ -260,14 +259,14 @@ harness rather than the page:
 
 - **The unhidden-card report had the same blind spot the detector just lost.**
   It collected only leaf elements, so an "Ad" sharing an element with an icon
-  was invisible to it — which is precisely how the Yasso and Coca-Cola cards
+  was invisible to it — which is precisely how several ad cards
   managed to look label-less while plainly showing "Ad · 🌐" on screen.
 
   Non-leaves are now reported by their **own** text, the same way
   `classifyLabel` reads them since 1.1.57, and marked with `*`:
 
   ```
-  span:"Coca-Cola" span*:"Ad" span:"·" span:"COCA-COLA.COM"
+  span:"<advertiser>" span*:"Ad" span:"·" span:"<ADVERTISER>.COM"
   ```
 
   A diagnostic that cannot see what the detector can see is worse than none: it
@@ -277,7 +276,7 @@ harness rather than the page:
 ### Note
 
 1.1.57's fix is correct and stays — that form exists and is now handled. It is
-simply not what the Coca-Cola card is doing, and this release is about being
+simply not what those cards are doing, and this release is about being
 able to tell the difference.
 
 ## 1.1.57
@@ -290,7 +289,7 @@ able to tell the difference.
   such an element is not a leaf; it is not character-split either, so it fell
   through unexamined and the ad stayed visible.
 
-  Observed live on a Yasso ad (2026-09-11): the panel showed a `span:"·"` for
+  Observed live on an ad (2026-09-11): the panel showed a `span:"·"` for
   the byline separator, **no `"Ad"` leaf anywhere**, and no `<use>` or
   `aria-labelledby` route to one. All three known indirections ruled out at
   once, which is what pointed here.
@@ -326,7 +325,7 @@ All 10 fixtures pass.
 
   ```
   #2 680x837 cls=x1lliihq
-     span:"fairlife" span:"·" a:"#fairlifepartner" span:"FAIRLIFE.COM"
+     span:"<advertiser>" span:"·" a:"#<brand>partner" span:"<ADVERTISER>.COM"
   ```
 
   Note the `span:"·"` — the separator that sits *after* "Ad" in Facebook's
@@ -379,7 +378,7 @@ same document the scan sees, and it costs nothing until the panel is opened.
 
   It now reports only leaves that actually render, each text once. The same
   card in a harness goes from ten `span:"Facebook"` to
-  `span:"Verkada" span:"Ad" span:"See more"`.
+  `span:"<advertiser>" span:"Ad" span:"See more"`.
 
 - **Landmarks were read off the wrong element.** The report used
   `getAttribute` on the card's outermost `div`, so every card looked
@@ -404,7 +403,7 @@ same document the scan sees, and it costs nothing until the panel is opened.
   ```
   VISIBLE, NOT HIDDEN:
     #1 680x783 role=- posinset=- pagelet=-
-       span:"Verkada" span:"Ad" span:"See more" span:"Like"
+       span:"<advertiser>" span:"Ad" span:"See more" span:"Like"
   ```
 
   Three releases in a row were aimed at ads that stayed visible, each built on
