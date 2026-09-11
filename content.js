@@ -1231,6 +1231,24 @@ function sampleUnhiddenPosts() {
         }
       }
     }
+    // Where the card's links point. 1.1.63 detects ads by their /ads/about
+    // explainer link, so when a card is not hidden the first question is
+    // whether it has one - and a branded-content post promoting a brand may
+    // carry something else entirely. Paths only: the query strings Facebook
+    // appends are enormous and say nothing.
+    for (const a of el.querySelectorAll("a[href]")) {
+      if (evidence.length >= 12) break;
+      const href = a.getAttribute("href") || "";
+      if (!href || href === "#") continue;
+      let path = href;
+      try {
+        path = new URL(href, location.origin).pathname;
+      } catch (e) {
+        /* Relative or malformed; the raw value is more useful than nothing. */
+      }
+      evidence.push(`href:${path.slice(0, 28)}`);
+    }
+
     for (const e of el.querySelectorAll("[aria-label]")) {
       if (evidence.length >= 14) break;
       const a = e.getAttribute("aria-label");

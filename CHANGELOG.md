@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.64
+
+### Added
+
+- **The unhidden-card report now lists where the card's links point.** 1.1.63
+  detects ads by their `/ads/about/` explainer link, so when a card survives the
+  first question is simply whether it has one — and the panel could not say.
+
+  A Boxiecat card got through reporting `a:"Freya The Fluff"`, `span*:"and"`,
+  `a:"Boxiecat"` and `aria:"Freya The Fluff, view story"`. That is
+  branded content — a creator's post promoting a brand — rather than a
+  standard sponsored ad, and it may carry a different explainer or none at all.
+  Rather than guess a seventh time, the report now shows the link paths.
+
+  Paths only. The query strings Facebook appends to these hrefs run to several
+  hundred characters and say nothing.
+
 ## 1.1.63
 
 ### Fixed
