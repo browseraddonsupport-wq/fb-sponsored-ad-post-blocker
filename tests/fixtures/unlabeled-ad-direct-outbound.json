@@ -1,5 +1,5 @@
 {
   "expect": "hidden",
   "why": "The National Geographic card, from a screenshot on 2026-09-11: it reads 'Sponsored' on screen, carries no readable label of any kind, links straight out to nationalgeographic.com rather than through /l.php, and its only self-link is /stories/<id>/ - which ads use, so it is deliberately not a permalink.",
-  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/natgeotravel\">National Geographic Travel</a><span>and</span><a href=\"/WVtourism\">West Virginia Tourism</a><span>&middot;</span><span><span></span></span></div><a href=\"/stories/173851227438515/Uzp\"><span>2.2K</span></a><a href=\"https://www.nationalgeographic.com/travel/article/wv\"><span>NATIONALGEOGRAPHIC.COM</span></a></div></div></div>"
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/natgeotravel\">National Geographic Travel</a><span>and</span><a href=\"/WVtourism\">West Virginia Tourism</a><span>&middot;</span><span><span></span></span></div><a href=\"/stories/173851227438515/Uzp\"><span>2.2K</span></a><a href=\"https://www.nationalgeographic.com/travel/article/wv\"><span>NATIONALGEOGRAPHIC.COM</span></a><span>West Virginia is home to one of the National Park Service newest parks.</span></div></div></div>"
 }

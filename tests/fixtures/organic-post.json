@@ -1,5 +1,5 @@
 {
   "expect": "visible",
   "why": "FALSE POSITIVE GUARD. An ordinary friend's post must never be hidden.",
-  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h2>A Friend</h2><span>2h</span><span>Great weekend at the lake</span><span>Like</span><span>Comment</span></div></div></div></div></div>"
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h2>A Friend</h2><span>2h</span><span>Great weekend at the lake</span><span>Like</span><span>Comment</span></div></div><span>Great weekend at the lake with everyone, back again next month.</span></div></div></div>"
 }

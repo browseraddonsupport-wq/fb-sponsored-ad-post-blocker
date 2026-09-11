@@ -2,5 +2,5 @@
   "expect": "hidden",
   "why": "REGRESSION GUARD for the 1.1.70 miss. The card carries nothing to judge when it is first scanned, and only becomes identifiable afterwards - here the byline reference appears late, live it was also cards still growing as their media loaded. 1.1.70 tested each card once, at insertion, and never looked again: the panel read by-shape 14 while an ad reporting by#_r_122_->MISSING with no permalink sat visible.",
   "danglingAfterScan": true,
-  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><a href=\"?__cft__[0]=AZx\"><span data-late-ref=\"_r_gone3_\"><span></span></span></a><span>&middot;</span><a href=\"/advertiser\">advertiser</a><a href=\"/l.php?u=x\">ADVERTISER.COM</a></div></div></div>"
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><a href=\"?__cft__[0]=AZx\"><span data-late-ref=\"_r_gone3_\"><span></span></span></a><span>&middot;</span><a href=\"/advertiser\">advertiser</a><a href=\"/l.php?u=x\">ADVERTISER.COM</a><span>Built for everyday comfort and designed to last all season long.</span></div></div></div>"
 }
