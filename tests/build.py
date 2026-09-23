@@ -264,6 +264,61 @@ if control:
     raise SystemExit("content.js contains control characters (%s). An escape was "
                      "eaten - check the bytes, not the rendering." % where)
 
+
+POPUP_SMOKE_TEMPLATE = """<style>%s</style>
+%s
+<script>
+// Stubs, not mocks: each returns the shape popup.js expects and nothing more.
+// storage is backed by a real object so the reveal toggle can be seen to
+// persist, which is the behaviour worth checking.
+const store = {};
+window.chrome = {
+  storage: { local: {
+    get: (d) => Promise.resolve(Object.assign({}, d,
+      Object.fromEntries(Object.entries(store).filter(([k]) => k in (d || {}))))),
+    set: (o) => { Object.assign(store, o); return Promise.resolve(); }
+  }},
+  permissions: { contains: () => Promise.resolve(true), request: () => Promise.resolve(true) },
+  tabs: {
+    query: () => Promise.resolve([{ id: 1, url: "https://www.facebook.com/" }]),
+    sendMessage: () => Promise.resolve({ version: "smoke", layout: "desktop", viewport: "1x1",
+      bodyClass: "x", classified: 10, anchored: 9, hidden: 4, deferred: 0, pending: 0, reveals: 0,
+      lateText: 0, rescued: 0, unlabeled: 2, released: 0, thresholds: "t", feed: "f",
+      timing: { uptimeMs: 1000, scanMs: 1, scans: 1, elements: 1, observerMs: 1,
+                observerCalls: 1, retryMs: 0, retryTicks: 0 },
+      samples: [], unhidden: [], survey: { hidden: 4, visible: 1, dangling: 0, resolving: 1 },
+      shapeHides: [{ who: "Fabletics -> /FableticsMen", why: "ts=no subj=1 perma=no",
+                     links: ["/FableticsMen", "/l.php"] }],
+      boot: "running" }),
+    reload: () => {}
+  },
+  runtime: { sendMessage: () => Promise.resolve({ count: 4 }) }
+};
+window.__store = store;
+</script>
+<script>%s</script>
+"""
+
+# --- popup smoke page -------------------------------------------------------
+# The fixture harness covers detection and never touches the popup, so popup
+# regressions are invisible until someone opens it on a phone. This renders the
+# real popup.html/css/js against stubbed extension APIs, which is enough to
+# catch a broken selector, a listener wired to a missing element, or a panel
+# that shows when it should not.
+def write_popup_smoke():
+    import re as _re
+    phtml = io.open(os.path.join(ROOT, "popup", "popup.html"), encoding="utf-8").read()
+    pcss = io.open(os.path.join(ROOT, "popup", "popup.css"), encoding="utf-8").read()
+    pjs = io.open(os.path.join(ROOT, "popup", "popup.js"), encoding="utf-8").read()
+    body = _re.search(r"<body>(.*)</body>", phtml, _re.S).group(1)
+    body = body.replace('<script src="popup.js"></script>', "")
+    page = POPUP_SMOKE_TEMPLATE % (pcss, body, pjs)
+    io.open(os.path.join(ROOT, "tests", "popup-smoke.html"), "w",
+            encoding="utf-8", newline="\n").write(page)
+
+
+write_popup_smoke()
+
 html = html.replace("FIXTURES_JSON", json.dumps(fixtures))
 html = html.replace("CONTENT_JS", src)
 io.open(os.path.join(ROOT, "tests", "runner-" + ref + ".html" if ref else "runner.html"), "w", encoding="utf-8", newline="\n").write(html)

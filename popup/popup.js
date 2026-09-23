@@ -23,6 +23,7 @@ const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
 const permissionPromptEl = document.getElementById("permissionPrompt");
 const grantAccessEl = document.getElementById("grantAccess");
+const titleEl = document.querySelector("header h1");
 const diagnosticsEl = document.getElementById("diagnostics");
 const diagnosticsBodyEl = document.getElementById("diagnosticsBody");
 const copyDiagnosticsEl = document.getElementById("copyDiagnostics");
@@ -100,8 +101,51 @@ async function init() {
   const resp = await browser.runtime.sendMessage({ type: "GET_COUNT", tabId: tab.id }).catch(() => null);
   countEl.textContent = resp ? String(resp.count) : "0";
 
-  await showDiagnostics(tab.id);
+  diagnosticsTabId = tab.id;
+  if (await diagnosticsWanted()) await showDiagnostics(tab.id);
 }
+
+// Kept out of DEFAULT_SETTINGS deliberately: that object is mirrored in
+// content.js and describes what the extension DOES. This only decides whether
+// one panel is on screen, and the content script has no use for it.
+const DIAGNOSTICS_KEY = "showDiagnostics";
+let diagnosticsTabId = null;
+
+async function diagnosticsWanted() {
+  try {
+    const stored = await browser.storage.local.get({ [DIAGNOSTICS_KEY]: false });
+    return !!stored[DIAGNOSTICS_KEY];
+  } catch {
+    return false;
+  }
+}
+
+// The panel exists for one person diagnosing one phone, not for everyone who
+// installs this. It stays in the release build because Android has no devtools
+// and the AMO release is what runs there - it is the only way to see what the
+// extension is doing on a phone - but it should not greet ordinary users.
+//
+// Three taps on the title, which works with a mouse and with a thumb. The
+// choice is remembered, so on a phone it is enabled once and stays.
+const REVEAL_TAPS = 3;
+const REVEAL_WINDOW_MS = 1500;
+let taps = [];
+
+titleEl.addEventListener("click", async () => {
+  const now = Date.now();
+  taps = taps.filter((t) => now - t < REVEAL_WINDOW_MS);
+  taps.push(now);
+  if (taps.length < REVEAL_TAPS) return;
+  taps = [];
+
+  const wanted = !(await diagnosticsWanted());
+  await browser.storage.local.set({ [DIAGNOSTICS_KEY]: wanted });
+  if (wanted) {
+    if (diagnosticsTabId != null) await showDiagnostics(diagnosticsTabId);
+  } else {
+    diagnosticsEl.hidden = true;
+  }
+});
 
 // Asks the content script directly rather than the background: only the content
 // script knows what the page looked like. A missing reply means it isn't running

@@ -154,3 +154,10 @@ footer {
   margin-top: 2px;
   opacity: 0.7;
 }
+
+/* The title toggles the Diagnostics panel on three taps. Cursor only - no
+   visible affordance, because the panel is not meant to invite exploration. */
+header h1 {
+  cursor: default;
+  user-select: none;
+}
