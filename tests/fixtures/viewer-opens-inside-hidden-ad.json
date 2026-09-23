@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "why": "REGRESSION GUARD, reported 2026-09-23: clicking into comments on a post or a picture showed nothing. Facebook builds those viewers out of nodes already on the page, so one can open inside a card we have hidden - it then renders perfectly into display:none and the user gets a blank screen. Whatever earned the hide, a viewer inside it means the hide is now doing harm, so it must let go.",
+  "dialogAfterHide": true,
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/advertiser\">An Advertiser</a><span>&middot;</span><span aria-labelledby=\"_r_gone9_\"><span></span></span></div><span>Our biggest sale of the year ends at midnight tonight, do not miss it.</span><a href=\"https://advertiser.example/sale\"><span>ADVERTISER.COM</span></a></div></div></div>"
+}

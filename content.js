@@ -843,6 +843,9 @@ function expandToCard(node) {
     if (pr.width > br.width * DESKTOP_CARD_WIDTH_JUMP) break;
     if (pr.height > UNHIDDEN_MAX_HEIGHT) break;
     if (holdsSeveralCards(parent)) break;
+    // Whatever else is up there, it is not part of this card if it holds the
+    // photo viewer or the comment dialog.
+    if (parent.querySelector('[role="dialog"]')) break;
     // holdsSeveralCards measures boxes, and a post we have already hidden has
     // no box - so a feed column whose other posts are all hidden looks exactly
     // like a single card, and the climb would take the entire feed. Ask
@@ -906,6 +909,27 @@ function restorePost(container) {
   if (info.placeholder) info.placeholder.remove();
   hiddenPosts.delete(container);
   if (isPostReason(info.reason)) reportCount(-1);
+}
+
+// Clicking a photo, or a post's comment count, opens a viewer - and Facebook
+// builds it by reusing nodes that are already on the page, sometimes inside a
+// card we have hidden. The viewer then renders correctly into an element with
+// display:none, and the user clicks through to a blank screen. Reported
+// 2026-09-23: "viewing comments on posts / pictures once you click into them
+// you are unable to view it."
+//
+// Whatever we got wrong to end up here, a viewer being inside a hidden
+// container always means the hide is now doing harm, so give it back
+// immediately rather than waiting to work out why.
+let viewersReleased = 0;
+
+function releaseHiddenAround(dialog) {
+  for (const [container] of hiddenPosts) {
+    if (container.contains(dialog) || dialog.contains(container)) {
+      viewersReleased += 1;
+      restorePost(container);
+    }
+  }
 }
 
 function restoreByReason(reason) {
@@ -1464,6 +1488,7 @@ function buildDiagnostics() {
     rescued: rescuedLabels,
     unlabeled: unlabeledAdsHidden,
     shapeHides: shapeHides.slice(),
+    released: viewersReleased,
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -1944,8 +1969,11 @@ function sweepUnlabeledAds(root) {
   const seen = new Set();
   const consider = (el, card) => {
     if (!card) return;
-    // Reels and the photo viewer render in a dialog, never a feed card.
+    // Reels and the photo viewer render in a dialog, never a feed card. Both
+    // directions: the entry element may sit outside a viewer that the card
+    // above it contains, and hiding that card takes the viewer with it.
     if (el.closest('[role="dialog"]')) return;
+    if (card.closest('[role="dialog"]') || card.querySelector('[role="dialog"]')) return;
     if (seen.has(card)) return;
     seen.add(card);
     if (hiddenPosts.has(card)) return;
@@ -2047,6 +2075,17 @@ const observer = new MutationObserver((mutations) => {
   const observerStartedAt = performance.now();
   for (const mutation of mutations) {
     if (mutation.addedNodes.length > 0 && mutation.target.nodeType === Node.ELEMENT_NODE) {
+      // Only worth asking while something is hidden, which keeps this off the
+      // hot path on a page where nothing has matched yet.
+      if (hiddenPosts.size > 0) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          const dialog = node.matches('[role="dialog"]')
+            ? node
+            : node.querySelector('[role="dialog"]');
+          if (dialog) releaseHiddenAround(dialog);
+        }
+      }
       const staleContainer = hiddenContainerFor(mutation.target);
       const info = staleContainer && hiddenPosts.get(staleContainer);
       if (info && !stillQualifies(staleContainer, info)) {

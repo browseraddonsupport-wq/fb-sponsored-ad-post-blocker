@@ -114,6 +114,7 @@ async function showDiagnostics(tabId) {
     `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
     `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
     `late-text ${d.lateText == null ? "?" : d.lateText}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
+    `viewers released ${d.released == null ? "?" : d.released}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];

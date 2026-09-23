@@ -137,6 +137,18 @@ CONTENT_JS
     // an UNRELATED root here is the point - if the fix only re-checked the
     // subtree that changed, it would still miss this, which is precisely how
     // the bug survived a passing suite.
+    // A viewer opening inside a card we already hid. Facebook builds the photo
+    // and comment viewers out of nodes already on the page, so this is not
+    // hypothetical - a user reported clicking into comments and getting a
+    // blank screen. The hide has to let go, whatever earned it.
+    if (f.dialogAfterHide) {
+      var card = host.querySelector("[style*='width:680px']");
+      var dialog = document.createElement("div");
+      dialog.setAttribute("role", "dialog");
+      dialog.textContent = "comments";
+      (card || host).appendChild(dialog);
+    }
+
     if (f.danglingAfterScan) {
       var late = host.querySelector("[data-late-ref]");
       if (late) late.setAttribute("aria-labelledby", late.getAttribute("data-late-ref"));

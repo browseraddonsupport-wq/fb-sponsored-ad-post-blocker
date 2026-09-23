@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.1.77
+
+Reported 2026-09-23: clicking into comments on a post or a picture sometimes
+showed nothing at all.
+
+I could not reproduce the exact path from outside the browser, so this is two
+changes — one that removes the most likely cause, and one that makes the
+symptom self-correcting whatever the cause turns out to be.
+
+### Fixed
+
+- **A viewer opening inside a hidden card now frees it.** Facebook builds the
+  photo and comment viewers out of nodes already on the page, so one can open
+  inside a card that is hidden — it then renders perfectly into `display:none`
+  and you click through to a blank screen. Whatever earned that hide, a viewer
+  being inside it means the hide is now doing harm, so it lets go immediately
+  rather than waiting to establish why.
+
+- **Nothing may be hidden that contains a viewer.** The dialog check ran on the
+  element the rule started from, not on the card it settled on — so a card
+  could be hidden while holding a viewer that sat below the starting point. It
+  is now checked in both directions, and the walk that expands a hide to the
+  whole card stops at anything containing one.
+
+### Added
+
+- The panel reports `viewers released`. If that number is climbing, this is
+  happening and the cause is still worth finding; if it stays at zero while the
+  problem persists, the cause is somewhere else entirely.
+
+### Verified
+
+31 fixtures, thirteen of them false-positive guards. The new one was checked
+against the failure mode it guards — the card is hidden, the viewer opens, the
+hide releases — rather than only checked for passing, since a guard that never
+exercises its rule has slipped through twice in this series.
+
 ## 1.1.76
 
 Ads still losing their picture and keeping everything else — one by
