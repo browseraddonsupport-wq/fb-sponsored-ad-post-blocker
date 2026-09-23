@@ -33,3 +33,37 @@
 .fbsb-show-btn:hover {
   background: rgba(24, 119, 242, 0.1);
 }
+
+/* The in-feed "This is an ad" control. Fixed to the viewport and parented to
+   <body>, never to a Facebook subtree - see the note in content.js. Sits above
+   the feed but below Facebook's own dialogs, which run well past 1000. */
+#fbsb-mark {
+  position: fixed;
+  z-index: 900;
+  padding: 3px 9px;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #65676b;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #dadde1;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+#fbsb-mark:hover {
+  opacity: 1;
+  color: #1877f2;
+  border-color: #1877f2;
+}
+
+.fbsb-keep-btn {
+  color: #65676b;
+  border-color: #dadde1;
+}
+
+.fbsb-keep-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}

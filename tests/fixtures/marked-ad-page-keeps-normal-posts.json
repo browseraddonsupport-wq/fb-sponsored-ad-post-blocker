@@ -1,0 +1,8 @@
+{
+  "expect": "visible",
+  "why": "GUARD ON THE MARKING. Marking a page is a strong hint, not a block list - the user chose that deliberately, for pages that post both ads and real content. This post from a marked page does not send you off Facebook, so it is not ad-shaped and must stay.",
+  "settings": {
+    "adPages": "someadvertiser"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/someadvertiser\">Some Advertiser</a><span>&middot;</span><span aria-labelledby=\"_r_ts8_\"><span></span></span></div><span id=\"_r_ts8_\">27 minutes ago</span><span>Thanks to everyone who came down to the shop this weekend, it was lovely.</span><a href=\"/someadvertiser/posts/pfbid0abc\">2h</a></div></div></div>"
+}

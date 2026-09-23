@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "Marking a page as an advertiser sets aside the two vetoes that normally protect a real post - this card links to itself AND says how old it is, either of which would ordinarily save it. You have said this page's posts are ads, so they go.",
+  "settings": {
+    "adPages": "someadvertiser"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/someadvertiser\">Some Advertiser</a><span>&middot;</span><span aria-labelledby=\"_r_ts9_\"><span></span></span></div><span id=\"_r_ts9_\">27 minutes ago</span><span>Our biggest sale of the year ends at midnight tonight, do not miss it.</span><a href=\"/someadvertiser/posts/pfbid0abc\">2h</a><a href=\"https://someadvertiser.example/sale\"><span>SOMEADVERTISER.COM</span></a></div></div></div>"
+}

@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS = {
   hideAppBanner: true,
   hideUnlabeledAds: true,
   keepPages: "",
+  adPages: "",
+  showMarkers: true,
   placeholderMode: false,
 };
 
@@ -18,6 +20,8 @@ const hideUnfollowedEl = document.getElementById("hideUnfollowed");
 const hideAppBannerEl = document.getElementById("hideAppBanner");
 const hideUnlabeledAdsEl = document.getElementById("hideUnlabeledAds");
 const keepPagesEl = document.getElementById("keepPages");
+const adPagesEl = document.getElementById("adPages");
+const showMarkersEl = document.getElementById("showMarkers");
 const placeholderModeEl = document.getElementById("placeholderMode");
 const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
@@ -38,6 +42,8 @@ function save() {
     hideAppBanner: hideAppBannerEl.checked,
     hideUnlabeledAds: hideUnlabeledAdsEl.checked,
     keepPages: keepPagesEl.value,
+    adPages: adPagesEl.value,
+    showMarkers: showMarkersEl.checked,
     placeholderMode: placeholderModeEl.checked,
   });
 }
@@ -87,6 +93,8 @@ async function init() {
   hideAppBannerEl.checked = settings.hideAppBanner;
   hideUnlabeledAdsEl.checked = settings.hideUnlabeledAds;
   keepPagesEl.value = settings.keepPages;
+  adPagesEl.value = settings.adPages;
+  showMarkersEl.checked = settings.showMarkers;
   placeholderModeEl.checked = settings.placeholderMode;
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -254,12 +262,13 @@ copyDiagnosticsEl.addEventListener("click", () => {
   );
 });
 
-[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, hideUnlabeledAdsEl, placeholderModeEl].forEach((el) =>
+[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, hideUnlabeledAdsEl, showMarkersEl, placeholderModeEl].forEach((el) =>
   el.addEventListener("change", save)
 );
 
 // "input" rather than "change": a textarea only fires change on blur, and a
 // popup is routinely dismissed without ever blurring the field.
 keepPagesEl.addEventListener("input", save);
+adPagesEl.addEventListener("input", save);
 
 init();

@@ -43,6 +43,14 @@ const DEFAULT_SETTINGS = {
   // audit list names the page, so this is the fix for the named page - and it
   // holds whatever Facebook changes next.
   keepPages: "",
+  // Pages you have marked as advertisers. Not a blanket block: a post from one
+  // still has to look like an ad - it must link off Facebook - before it is
+  // hidden. A Page that posts both, which is the case that makes a blanket
+  // block wrong, keeps the posts that are not ads.
+  adPages: "",
+  // The in-feed "This is an ad" control. On by default because it is how the
+  // other two lists get filled in, and easily switched off once they are.
+  showMarkers: true,
   placeholderMode: false,
 };
 
@@ -897,6 +905,25 @@ function hidePost(container, reason, label, via) {
 
     placeholder.appendChild(label);
     placeholder.appendChild(btn);
+
+    // Only the shape rule can be wrong about a post, so only its placeholders
+    // offer this. It names the page rather than this one post, because a post
+    // id does not survive a reload and a page name does.
+    if (via === "shape") {
+      const page = pageNameFor(container);
+      if (page) {
+        const keep = document.createElement("button");
+        keep.type = "button";
+        keep.className = "fbsb-show-btn fbsb-keep-btn";
+        keep.textContent = "Not an ad";
+        keep.title = "Never hide posts from " + page;
+        keep.addEventListener("click", () => {
+          addToPageList("keepPages", page);
+          restorePost(container);
+        });
+        placeholder.appendChild(keep);
+      }
+    }
     container.insertAdjacentElement("beforebegin", placeholder);
   }
 
@@ -951,6 +978,95 @@ function releaseHiddenAround(dialog) {
     }
   }
 }
+
+// The in-feed "This is an ad" control.
+//
+// One button, appended to <body> and positioned over whichever card the
+// pointer is on. Deliberately NOT injected into the card: writing into feed
+// children is what stalls Facebook's pager on mobile, and every piece of UI
+// added to a Facebook subtree is a hostage to the next markup change. A single
+// fixed-position element that only reads geometry cannot do either.
+const MARKER_ID = "fbsb-mark";
+let markerEl = null;
+let markerCard = null;
+
+function feedCardUnder(node) {
+  let el = node;
+  for (let i = 0; i < SHAPE_MAX_CLIMB && el && el !== document.body; i++) {
+    if (el.nodeType === Node.ELEMENT_NODE) {
+      const r = el.getBoundingClientRect();
+      if (
+        r.width >= FEED_POST_MIN_WIDTH && r.width <= FEED_POST_MAX_WIDTH &&
+        r.height >= FEED_POST_MIN_HEIGHT && r.height <= UNHIDDEN_MAX_HEIGHT &&
+        !holdsSeveralCards(el)
+      ) {
+        return el;
+      }
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function hideMarker() {
+  markerCard = null;
+  if (markerEl) markerEl.style.display = "none";
+}
+
+function ensureMarker() {
+  if (markerEl) return markerEl;
+  markerEl = document.createElement("button");
+  markerEl.type = "button";
+  markerEl.id = MARKER_ID;
+  markerEl.textContent = "This is an ad";
+  markerEl.style.display = "none";
+  markerEl.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!markerCard) return;
+    const page = pageNameFor(markerCard);
+    const card = markerCard;
+    hideMarker();
+    if (!page) return;
+    addToPageList("adPages", page);
+    // Hide it now rather than waiting for the next sweep, so the click has a
+    // visible result even if this particular post is not ad-shaped.
+    if (!hiddenPosts.has(card)) hidePost(card, "sponsored", card, "marked");
+  });
+  document.body.appendChild(markerEl);
+  return markerEl;
+}
+
+function positionMarkerOver(card) {
+  const el = ensureMarker();
+  const r = card.getBoundingClientRect();
+  markerCard = card;
+  el.style.display = "block";
+  el.style.top = Math.max(4, r.top + 8) + "px";
+  el.style.left = r.left + 8 + "px";
+}
+
+function markerEnabled() {
+  return settings.showMarkers && settings.hideUnlabeledAds && !isMobileLayout();
+}
+
+document.addEventListener(
+  "mouseover",
+  (e) => {
+    if (!markerEnabled()) return;
+    if (markerEl && e.target === markerEl) return;
+    const card = feedCardUnder(e.target);
+    if (!card || card.closest("[data-fbsb-hidden]")) {
+      hideMarker();
+      return;
+    }
+    if (card !== markerCard) positionMarkerOver(card);
+  },
+  true
+);
+
+// Geometry read on hover goes stale the moment the page moves.
+window.addEventListener("scroll", hideMarker, { passive: true, capture: true });
 
 function restoreByReason(reason) {
   for (const [container, info] of hiddenPosts) {
@@ -1855,27 +1971,64 @@ const MAX_PROFILE_LINKS = 3;
 
 // "/DetroitLions", "DetroitLions", "facebook.com/DetroitLions" all mean the
 // same thing to someone typing it in, so accept all of them.
-function keptPageSet() {
+function pageSet(value) {
   const out = new Set();
-  for (const raw of (settings.keepPages || "").split(/[\n,]/)) {
+  for (const raw of (value || "").split(/[\n,]/)) {
     const name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
     if (name) out.add(name);
   }
   return out;
 }
 
-function isKeptPage(card) {
-  const kept = keptPageSet();
-  if (kept.size === 0) return false;
+function cardOnList(card, names) {
+  if (names.size === 0) return false;
   for (const a of card.querySelectorAll("a[href]")) {
     const path = linkPath(a);
     if (!path || path === "/") continue;
     const segments = path.replace(/^\/+|\/+$/g, "").split("/");
-    if (kept.has(segments[0].toLowerCase())) return true;
+    if (names.has(segments[0].toLowerCase())) return true;
     // A group post's identity is /groups/<id>, not the first segment.
-    if (segments.length > 1 && kept.has((segments[0] + "/" + segments[1]).toLowerCase())) return true;
+    if (segments.length > 1 && names.has((segments[0] + "/" + segments[1]).toLowerCase())) return true;
   }
   return false;
+}
+
+function isKeptPage(card) {
+  return cardOnList(card, pageSet(settings.keepPages));
+}
+
+function isAdPage(card) {
+  return cardOnList(card, pageSet(settings.adPages));
+}
+
+// Which page a card belongs to, for writing into one of those lists: the first
+// link that names somebody, whether an advertiser's own page or a group.
+function pageNameFor(card) {
+  for (const a of card.querySelectorAll("a[href]")) {
+    const path = linkPath(a);
+    if (!path || path === "/" || path === OUTBOUND_PATH) continue;
+    const segments = path.replace(/^\/+|\/+$/g, "").split("/");
+    if (segments[0] === "groups" && segments[1]) return segments[0] + "/" + segments[1];
+    if (segments.length === 1 && segments[0] && !/^\d+$/.test(segments[0])) return segments[0];
+  }
+  return null;
+}
+
+function hasOutboundLink(card) {
+  for (const a of card.querySelectorAll("a[href]")) {
+    if (isOutboundLink(a)) return true;
+  }
+  return false;
+}
+
+// Appends a name to one of the two lists and persists it. The storage listener
+// picks the change up and rescans, so the feed updates without a reload.
+function addToPageList(key, name) {
+  const current = settings[key] || "";
+  if (pageSet(current).has(name.toLowerCase())) return;
+  const next = current.trim() ? current.trim() + "\n" + name : name;
+  settings[key] = next;
+  browser.storage.local.set({ [key]: next });
 }
 
 function bylineCount(card) {
@@ -2093,9 +2246,18 @@ function sweepUnlabeledAds(root) {
     seen.add(card);
     if (hiddenPosts.has(card)) return;
     if (card.closest("[data-fbsb-hidden]")) return;
-    if (hasPermalink(card)) return;
-    // A byline that still tells you how old the post is. An ad's does not.
-    if (hasResolvingTimestamp(card)) return;
+    // A page you have marked as an advertiser sets aside the two vetoes that
+    // protect real posts - it links to itself, it says how old it is - because
+    // you have said its posts are ads anyway. It does NOT set aside "does this
+    // look like an ad": it still has to send you off Facebook. Marking a page
+    // is a strong hint, not a block list.
+    if (isAdPage(card)) {
+      if (!hasOutboundLink(card)) return;
+    } else {
+      if (hasPermalink(card)) return;
+      // A byline that still tells you how old the post is. An ad's does not.
+      if (hasResolvingTimestamp(card)) return;
+    }
     if (bylineCount(card) > MAX_PROFILE_LINKS) return;
     if (holdsSeveralCards(card)) return;
     if (!looksLikePost(card)) return;
@@ -2376,6 +2538,21 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
   if (changes.placeholderMode) {
     settings.placeholderMode = changes.placeholderMode.newValue;
+  }
+  if (changes.keepPages) {
+    settings.keepPages = changes.keepPages.newValue;
+    // Give back anything now named in the list, without waiting for a reload.
+    for (const [container, info] of hiddenPosts) {
+      if (info.reason === "sponsored" && isKeptPage(container)) restorePost(container);
+    }
+  }
+  if (changes.adPages) {
+    settings.adPages = changes.adPages.newValue;
+    shouldRescan = true;
+  }
+  if (changes.showMarkers) {
+    settings.showMarkers = changes.showMarkers.newValue;
+    if (!settings.showMarkers) hideMarker();
   }
 
   if (shouldRescan && document.body) scanRoot(document.body);

@@ -44,9 +44,14 @@ window.browser = {
   runtime: { getManifest: function(){ return { version: "fixture" }; },
              sendMessage: function(){ return Promise.resolve(); },
              onMessage: { addListener: function(){} } },
-  storage: { local: { get: function(d){ return Promise.resolve(Object.assign({}, d)); } },
+  // set() is backed by a real object, not a no-op: the in-feed marker writes
+  // the page it just marked through it, and a stub that silently swallowed
+  // that would let a broken write pass the suite.
+  storage: { local: { get: function(d){ return Promise.resolve(Object.assign({}, d)); },
+                      set: function(o){ Object.assign(window.__written, o); return Promise.resolve(); } },
              onChanged: { addListener: function(){} } }
 };
+window.__written = {};
 window.__FIXTURES__ = FIXTURES_JSON;
 </script>
 <script>

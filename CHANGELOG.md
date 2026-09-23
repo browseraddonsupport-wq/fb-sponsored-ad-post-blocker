@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.82
+
+### Added
+
+- **Teach it, from the feed.** Hovering a post shows a faint **"This is an ad"**
+  button; clicking it records that Page as an advertiser and hides the post.
+  Where a hidden post leaves a placeholder, that placeholder now offers **"Not
+  an ad"**, which records the Page as one to keep and brings the post back.
+
+  Both write to lists you can see and edit in the popup, so nothing is learned
+  that cannot be unlearned.
+
+- **Marking a Page is a strong hint, not a block list.** A marked Page's post
+  still has to look like an ad — it must link off Facebook — before it is
+  hidden. That keeps a Page that posts both ads and real content usable, which
+  is exactly the case a blanket block gets wrong. What marking *does* set aside
+  are the two vetoes that normally protect a real post: that it links to itself,
+  and that its byline says how old it is.
+
+  The unit is the Page rather than the post because Facebook's post ids are
+  obfuscated and do not survive a reload, while a Page name does — so a decision
+  made once applies to everything that Page posts next.
+
+- The button is switchable from the popup, and hidden on mobile, where writing
+  anything near a feed card stalls Facebook's pager (`MOBILE-VIRTUALISATION.md`).
+
+### Notes on how it is built
+
+The button is a single element parented to `<body>` and positioned over
+whichever card the pointer is on. It is deliberately **not** injected into the
+card: every piece of UI added to a Facebook subtree is a hostage to the next
+markup change, and on mobile writing into feed children is what stalls the
+pager. A fixed-position element that only reads geometry can do neither.
+
+### Verified
+
+37 fixtures, eighteen of them false-positive guards, plus a direct test of the
+control itself: hover a card, the button appears, clicking it writes the page
+name through `storage.local` and hides the post. The runner's storage stub is
+now backed by a real object rather than a no-op, so a write that silently
+failed would show up as a failure instead of passing.
+
 ## 1.1.81
 
 ### Changed
