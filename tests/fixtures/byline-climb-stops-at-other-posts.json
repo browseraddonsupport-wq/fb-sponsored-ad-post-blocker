@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "check": ".neighbour-post",
+  "why": "GUARD ON THE BYLINE CLIMB. It widens a hide until it contains who posted it - so an ad with no readable page link would keep climbing, and in a short feed the next thing up holds a real post that does have one. It must stop at the container of posts, and the friend's post beside the ad must survive.",
+  "card": "<div class=\"feedwrap\"><div class=\"neighbour-post\" style=\"width:680px;height:400px\"><a href=\"/afriend\">A Friend</a><a href=\"/afriend/posts/pfbid0\">2h</a><span>Great weekend at the lake with everyone, back again next month.</span></div><div class=\"the-ad\" style=\"width:680px;height:700px\"><span>Our biggest sale of the year ends at midnight tonight, do not miss it.</span><div style=\"width:680px;height:420px\"><a href=\"/photo/?fbid=1\"><img style=\"width:600px;height:400px\"></a></div><a href=\"https://adv.example/x\">ADV.EXAMPLE</a></div></div>"
+}

@@ -185,6 +185,7 @@ async function showDiagnostics(tabId) {
     `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
     `late-text ${d.lateText == null ? "?" : d.lateText}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
     `viewers released ${d.released == null ? "?" : d.released}  opened posts spared ${d.spared == null ? "?" : d.spared}`,
+    `half-hidden posts ${d.partial == null ? "?" : d.partial}${d.partial ? "   <-- a post lost its picture but kept its name" : ""}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];

@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.1.86
+
+Two reports on 2026-09-23, from the same kind of ad.
+
+### Fixed
+
+- **"This is an ad" hid the picture and left the post.** Picture gone, page
+  name, text, sign-up bar and reactions still standing, and nothing recorded in
+  the advertiser list. It is the fourth time a half-hide has reached the
+  screen, and each earlier fix patched the climb with another measurement that
+  a different layout then got past.
+
+  So the climb is anchored on something every post has instead: **the line
+  saying who posted it.** A hide is not finished until it contains that. The
+  climb keeps every guard that keeps it inside one post — it never crosses
+  into the page column, a viewer, above a hidden neighbour, or into a container
+  that holds another post — and if it cannot find a byline inside those
+  bounds it leaves the hide exactly as it was. It can widen a hide within a
+  post; it cannot widen one into the feed.
+
+  The page name is now read from the whole post as well, which is why the list
+  stayed empty: a picture's only links are `/photo/` and the advertiser's own
+  site, neither of which is a page.
+
+- **Lead-form ads got through entirely.** "FORM — Enter for a chance to win
+  — Sign up". That button opens a form on Facebook itself,
+  so the ad never links off it; its "Ad" label is the unreadable kind; and it
+  carries no dangling byline reference. Every route in missed it.
+
+  What every ad does carry is a call to action, so that is now a third way in:
+  "Sign up", "Apply now", "Get quote", "Shop now" and the rest of the words
+  Facebook puts on those buttons. It only makes a card a candidate — every veto
+  that protects a real post still applies afterwards. "Message", "Send
+  message", "Join", "Follow" and "Interested" are deliberately not on the list:
+  every marketplace listing and group post carries one of those.
+
+### Changed — test harness
+
+- **"Hidden" now means the whole post is gone.** The runner counted a post as
+  hidden if a hide marker existed *anywhere* inside it — so a post with only
+  its picture hidden passed. That is precisely the bug that reached the screen
+  four times, and not one fixture could see it. There are now three outcomes:
+  hidden, visible, and **partial**, which is never right.
+
+- **A fixture can press "This is an ad"**, the way a person does — point at the
+  picture, click the button — and can check which page name was recorded.
+
+### Added
+
+- The Diagnostics panel reports `half-hidden posts`, and keeps the *latest*
+  eight hides as samples rather than the first eight. The reported half-hide
+  was the seventeenth of its page, so the old panel could never have shown it.
+
+### Verified
+
+49 fixtures, twenty-three of them false-positive guards. Both new bug fixtures
+were confirmed to fail on 1.1.85 first — and the first draft of the
+half-hide one did not: it gave the ad an off-Facebook link, so a second pass
+of the shape rule rescued the post and hid the lot. That is exactly what never
+happened on the real page, where nothing links off Facebook. Redrawn as a
+lead-form ad, with the click as the only thing that can hide it, it reproduces
+the report: `partial` on 1.1.85, hidden — and the page name recorded — on
+1.1.86.
+
 ## 1.1.85
 
 ### Fixed

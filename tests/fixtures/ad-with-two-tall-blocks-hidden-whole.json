@@ -1,0 +1,11 @@
+{
+  "expect": "hidden",
+  "why": "REGRESSION GUARD, from screenshots on 2026-09-23: clicking 'This is an ad' on a Renaissance Roofing post took the picture and left the page name, the text, the sign-up bar and the reactions standing - and recorded nothing, because the page name was read from inside the picture. It is a lead-form ad: 'Sign up' opens a form on Facebook, so nothing links off it and the shape rule never looks at it, which is why no second pass came along and finished the job. The shape rule is switched off here so that only the click can hide it. The hide is not finished until it contains who posted it.",
+  "markAsAd": true,
+  "recorded": "RenaissanceRoofingInc",
+  "settings": {
+    "hideUnlabeledAds": false,
+    "showMarkers": true
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:1150px\"><div><a href=\"/RenaissanceRoofingInc\">Renaissance Roofing, Inc.</a><span>&middot;</span></div><div style=\"width:680px;height:320px\"><span>This fall, Renaissance Roofing is giving one lucky homeowner the chance to win a free roof. Enter today.</span></div><div style=\"width:680px;height:700px\"><a href=\"/photo/?fbid=555\"><img style=\"width:630px;height:600px;display:block\"></a><span>FORM</span><span>Enter to Win a FREE ROOF</span><div role=\"button\">Sign up</div></div><span>19</span></div></div></div>"
+}

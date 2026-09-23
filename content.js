@@ -840,6 +840,65 @@ function hiddenContainerFor(node) {
 // it is feed-post width then the thing the user wants gone is the whole card,
 // never a block inside it - so walk up until the next step would leave the
 // card. Cheap, and it holds even if a climb elsewhere stops short again.
+// A hide that stops short has now reached the screen four times - Goose Creek,
+// Wayfair, Great Rail Journeys, and on 2026-09-23 Renaissance Roofing, where
+// clicking "This is an ad" took the picture and left the page name, the text,
+// the sign-up bar and the reactions standing. Each time the climb was patched
+// with another measurement, and each time a different layout got past it:
+// expandToCard stops at a parent holding two tall blocks, which is what a
+// container of posts looks like - and also what one post with a tall picture
+// and a tall block of text looks like.
+//
+// So anchor on something every post has instead: the line saying who posted
+// it. Whatever the geometry says, a hide that does not contain the poster's
+// name has not reached the post yet. The climb keeps every guard that keeps it
+// inside ONE post - it never crosses into the page column, a viewer, above a
+// hidden neighbour, or into a container holding another post - and if it
+// cannot find a byline inside those bounds it leaves the hide exactly as it
+// was. It can only ever widen a hide within a post, never into the feed.
+function includesByline(node) {
+  return pageNameFor(node) !== null;
+}
+
+// Another post, as opposed to another block of this one. A post's own header
+// has a byline too, but it is short; a neighbouring post is card-sized.
+function holdsAnotherPost(parent, self) {
+  for (const child of parent.children) {
+    if (child === self || child.contains(self)) continue;
+    const r = child.getBoundingClientRect();
+    if (r.width < FEED_POST_MIN_WIDTH || r.width > FEED_POST_MAX_WIDTH) continue;
+    if (r.height < FEED_POST_MIN_HEIGHT) continue;
+    if (includesByline(child)) return true;
+  }
+  return false;
+}
+
+function includeByline(node) {
+  if (isMobileLayout() || includesByline(node)) return node;
+  let best = node;
+  for (let i = 0; i < SHAPE_MAX_CLIMB; i++) {
+    const parent = best.parentElement;
+    if (!parent || parent === document.body) break;
+    const br = best.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    if (pr.width > FEED_POST_MAX_WIDTH) break;
+    if (pr.width > br.width * DESKTOP_CARD_WIDTH_JUMP) break;
+    if (pr.height > UNHIDDEN_MAX_HEIGHT) break;
+    if (parent.querySelector('[role="dialog"]')) break;
+    if (hasHiddenSibling(parent, best)) break;
+    if (parent.querySelectorAll("[aria-posinset]").length > 1) break;
+    if (holdsAnotherPost(parent, best)) break;
+    best = parent;
+    if (includesByline(best)) return best;
+  }
+  return node;
+}
+
+// The whole post, as far as it can safely be found.
+function wholePost(node) {
+  return includeByline(expandToCard(node));
+}
+
 function expandToCard(node) {
   if (isMobileLayout()) return node;
   const r = node.getBoundingClientRect();
@@ -936,7 +995,7 @@ function wasOpenedOnPurpose(container) {
 }
 
 function hidePost(container, reason, label, via) {
-  if (isPostReason(reason)) container = expandToCard(container);
+  if (isPostReason(reason)) container = wholePost(container);
   if (isPostReason(reason) && wasOpenedOnPurpose(container)) {
     openedPostsSpared += 1;
     return;
@@ -1155,7 +1214,7 @@ document.addEventListener(
     // Measured by position rather than by what the pointer is on: Facebook
     // lays transparent layers over its images, so the element under the
     // pointer is rarely the <img> itself.
-    const card = expandToCard(inner);
+    const card = wholePost(inner);
     const media = mainMediaOf(card);
     if (!media) {
       hideMarker();
@@ -1480,8 +1539,12 @@ function describeNode(el) {
 // wrapper holding the space", which on a feed looks like a gap you scroll past.
 const DIAG_CHAIN_DEPTH = 4;
 
+// The LATEST hides, not the first. A problem reported mid-scroll is almost
+// never in the first eight posts of the session, so a panel that kept the
+// first eight could not show it - the Renaissance Roofing half-hide was the
+// seventeenth of that page.
 function noteHiddenSample(container, reason, via) {
-  if (diagSamples.length >= DIAG_SAMPLE_LIMIT) return;
+  if (diagSamples.length >= DIAG_SAMPLE_LIMIT) diagSamples.shift();
   const chain = [];
   let n = container;
   for (let i = 0; i < DIAG_CHAIN_DEPTH && n && n !== document.body; i++) {
@@ -1733,6 +1796,19 @@ function buildDiagnostics() {
     shapeHides: shapeHides.slice(),
     released: viewersReleased,
     spared: openedPostsSpared,
+    // Hides that do not contain who posted it: a picture taken out of a post
+    // that is otherwise still standing. Should be zero; anything else is this
+    // bug again, and the samples below show where.
+    partial: (() => {
+      if (isMobileLayout()) return 0;
+      let n = 0;
+      for (const [container] of hiddenPosts) {
+        if (!container.isConnected) continue;
+        if (container.closest('[role="complementary"]')) continue;
+        if (!includesByline(container)) n += 1;
+      }
+      return n;
+    })(),
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing
@@ -2029,6 +2105,34 @@ const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\
 // "0 have a DANGLING byline ref, 0 resolve cleanly" across all 16 cards.
 const OUTBOUND_PATH = "/l.php";
 
+// A third way in, for ads that never leave Facebook. A lead-form ad's button
+// ("Sign up", "Apply now", "Get quote") opens a form on Facebook itself, so it
+// has no outbound link, and its "Ad" label is the unreadable kind - so on
+// 2026-09-23 Hill's Pet Nutrition and Renaissance Roofing both sat in the feed
+// with nothing any rule could see. What every ad does carry is a call to
+// action, and these are the words Facebook puts on those buttons.
+//
+// Deliberately absent: "Message" and "Send message" (every marketplace
+// listing), "Join", "Follow", "Interested", "Going". A match only makes a card
+// a candidate; every veto that protects a real post still applies after it.
+const AD_CTA_TEXTS = new Set([
+  "sign up", "apply now", "get quote", "learn more", "shop now", "order now",
+  "book now", "buy now", "get offer", "get offers", "download", "install now",
+  "subscribe", "contact us", "donate now", "get started", "see menu",
+  "play game", "listen now", "watch more", "get tickets", "request time",
+  "get showtimes", "call now", "use app", "get directions", "open link",
+  "send whatsapp message", "enter now", "claim offer", "get deal",
+]);
+const MAX_CTA_TEXT = 30;
+
+function isAdCallToAction(el) {
+  // Small elements only: a button, not a container that happens to hold one.
+  if (el.childElementCount > 4) return false;
+  const text = (el.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
+  if (!text || text.length > MAX_CTA_TEXT) return false;
+  return AD_CTA_TEXTS.has(text.toLowerCase());
+}
+
 // ...but not every ad uses it. The National Geographic card linked straight
 // out to nationalgeographic.com, so a test for /l.php alone never saw it. What
 // an ad cannot avoid is leaving Facebook: the click has to reach the
@@ -2167,6 +2271,13 @@ function pageNameFor(card) {
     }
   }
   return null;
+}
+
+function hasAdCallToAction(card) {
+  for (const b of card.querySelectorAll('[role="button"]')) {
+    if (isAdCallToAction(b)) return true;
+  }
+  return false;
 }
 
 function hasOutboundLink(card) {
@@ -2413,7 +2524,7 @@ function sweepUnlabeledAds(root) {
     // is a strong hint, not a block list.
     const marked = isAdPage(card);
     if (marked) {
-      if (!hasOutboundLink(card)) return;
+      if (!hasOutboundLink(card) && !hasAdCallToAction(card)) return;
     } else {
       if (!settings.hideUnlabeledAds) return;
       if (hasPermalink(card)) return;
@@ -2436,6 +2547,10 @@ function sweepUnlabeledAds(root) {
     for (const a of scope.querySelectorAll('a[href*="l.php"], a[href^="http"], a[href^="//"]')) {
       if (!isOutboundLink(a)) continue;
       consider(a, cardFromLabelRef(a));
+    }
+    for (const b of scope.querySelectorAll('[role="button"]')) {
+      if (!isAdCallToAction(b)) continue;
+      consider(b, cardFromLabelRef(b));
     }
   }
 }

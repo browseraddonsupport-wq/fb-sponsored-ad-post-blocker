@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD for the call-to-action route. 'Learn More' turned up on an ordinary ALDI community group post on 2026-09-23 - a shared link carries one. A button makes a card a candidate and nothing more: this post links to itself and says how old it is, and either is enough to save it.",
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:600px\"><div><a href=\"/groups/222222222222222/\">A Community Group</a><a href=\"/groups/222222222222222/user/99/\">A Member</a><span aria-labelledby=\"_r_e2x_\"><span></span></span></div><span id=\"_r_e2x_\">27 minutes ago</span><span>Found these at my local store today, worth a look if you are nearby this week.</span><a href=\"/photo/?fbid=777\"><img style=\"width:600px;height:400px\"></a><div role=\"button\">Learn More</div></div></div></div>"
+}

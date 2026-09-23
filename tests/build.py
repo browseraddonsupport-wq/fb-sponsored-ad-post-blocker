@@ -86,12 +86,27 @@ CONTENT_JS
   // this reason while the extension was working correctly.
   //
   // Ask the question the user asks instead: is it still on screen?
-  function isHidden(host, card) {
-    if (host.querySelector("[data-fbsb-hidden]")) return true;
-    var r = card.getBoundingClientRect();
+  // Is the post still on screen? Asked of the post itself, not of whether a
+  // hide marker exists somewhere inside it.
+  //
+  // This used to return true if ANY element in the fixture carried the
+  // marker. So a post with only its picture hidden - name, text and reactions
+  // all still showing - counted as hidden, and passed. That is exactly the bug
+  // that reached the screen four times, and not one fixture could see it.
+  function isGone(el) {
+    var r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return true;
-    if (getComputedStyle(card).visibility === "hidden") return true;
+    if (getComputedStyle(el).visibility === "hidden") return true;
     return false;
+  }
+
+  // Three outcomes, not two. "hidden" means the whole post is gone. "partial"
+  // means something inside it was hidden while the post still stands - never
+  // right, whichever way the fixture expected. "visible" means nothing in it
+  // was touched at all, which is what a false-positive guard has to prove.
+  function outcome(host, card) {
+    if (isGone(card)) return "hidden";
+    return host.querySelector("[data-fbsb-hidden]") ? "partial" : "visible";
   }
 
   var i = 0;
@@ -156,6 +171,29 @@ CONTENT_JS
     // an UNRELATED root here is the point - if the fix only re-checked the
     // subtree that changed, it would still miss this, which is precisely how
     // the bug survived a passing suite.
+    // Press "This is an ad" the way a person does: point at the post's
+    // picture, then click the button that appears. Written for the
+    // Renaissance Roofing report, where the click took the picture and left
+    // the post - and where nothing else would have finished the job, because
+    // a lead-form ad never links off Facebook and so the shape rule never
+    // looks at it. A fixture that let the sweep hide the card as well proved
+    // nothing: the first draft of it passed on the code it was written for.
+    if (f.markAsAd) {
+      var pic = null, area = 0;
+      host.querySelectorAll("img, video").forEach(function (m) {
+        var mr = m.getBoundingClientRect();
+        if (mr.width * mr.height > area) { area = mr.width * mr.height; pic = m; }
+      });
+      if (pic) {
+        var pr = pic.getBoundingClientRect();
+        pic.dispatchEvent(new MouseEvent("mouseover", {
+          bubbles: true, clientX: pr.left + pr.width / 2, clientY: pr.top + pr.height / 2
+        }));
+        var btn = document.getElementById("fbsb-mark");
+        if (btn && btn.style.display !== "none") btn.click();
+      }
+    }
+
     // A viewer opening inside a card we already hid. Facebook builds the photo
     // and comment viewers out of nodes already on the page, so this is not
     // hypothetical - a user reported clicking into comments and getting a
@@ -224,6 +262,7 @@ CONTENT_JS
     // Which page the fixture is on. Reset every time, or a permalink set by
     // one fixture would silently spare every card in the ones after it.
     window.__FBSB_TEST_URL__ = f.url || null;
+    window.__written = {};
     if (f.settings) Object.assign(settings, f.settings);
 
     // A throw in here used to stop the run dead: the page sat on "running..."
@@ -243,12 +282,24 @@ CONTENT_JS
 
     // Let the observer and the rAF-coalesced scan run, as they would live.
     setTimeout(function () {
-      var hidden = isHidden(host, card);
-      var want = f.expect === "hidden";
-      var ok = hidden === want;
+      // A fixture may name the element whose fate it is about - for instance
+      // one post among two, where the other is meant to be hidden.
+      var target = f.check ? host.querySelector(f.check) : card;
+      var got = f.check ? (isGone(target) ? "hidden" : "visible") : outcome(host, card);
+      var ok = got === f.expect;
+      // And, where it matters, what the click wrote down. The half-hide came
+      // with an empty advertiser list: the page name was read from inside the
+      // picture, which holds no link to the page.
+      if (ok && f.recorded) {
+        var written = (window.__written.adPages || "");
+        if (written.toLowerCase().indexOf(f.recorded.toLowerCase()) === -1) {
+          ok = false;
+          got += ", recorded " + JSON.stringify(written) + " not " + JSON.stringify(f.recorded);
+        }
+      }
       if (ok) { pass++; } else { fail++; }
       lines.push((ok ? "<span class='pass'>PASS</span>" : "<span class='fail'>FAIL</span>") +
-                 "  " + f.name + "   expected " + f.expect + ", got " + (hidden ? "hidden" : "visible"));
+                 "  " + f.name + "   expected " + f.expect + ", got " + got);
       if (!ok) lines.push("<span class='why'>" + f.why + "</span>");
       out.innerHTML = lines.join(NL);
       next();

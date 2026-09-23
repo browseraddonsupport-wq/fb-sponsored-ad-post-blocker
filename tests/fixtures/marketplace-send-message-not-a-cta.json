@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. Every marketplace listing in a buy-and-sell group carries a 'Message' or 'Send message' button, and these listings are exactly the posts this user reads. That button is deliberately not a call to action here. Honest caveat: this listing is also saved by its group self-link, so the fixture guards the pair - it keeps the listing safe even if one of the two protections is ever loosened, but cannot on its own prove the button is excluded.",
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:600px\"><div><a href=\"/groups/111111111111111/\">Local Sell Anything</a><a href=\"/groups/111111111111111/user/12/\">Another Seller</a></div><span>2 nice coolers for sale, $25 each, pick up locally this weekend only please.</span><img style=\"width:600px;height:400px\"><div role=\"button\">Send message</div></div></div></div>"
+}
