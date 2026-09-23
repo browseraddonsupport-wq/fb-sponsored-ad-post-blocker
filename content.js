@@ -880,8 +880,67 @@ function hasHiddenSibling(parent, self) {
   return false;
 }
 
+// A post you opened on purpose is not feed, and nothing here should touch it.
+//
+// Reported 2026-09-23: a friend shared a post from a buy-and-sell group in
+// Messenger, and opening it showed nothing - the post carries a "Join" button,
+// so the unfollowed rule hid it inside the very viewer the user had just
+// clicked into. The only way to read it was to switch that rule off. Every
+// rule here exists to curate a feed nobody chose; none of them should get a
+// say over a post somebody did.
+//
+// Two ways a post is opened deliberately:
+//
+//   - It is inside a viewer (role="dialog"): a post clicked into from the
+//     feed, a photo, a reel, a link followed from chat.
+//   - The page IS that post - a permalink, reached from outside Facebook or
+//     loaded directly. The right-hand rail is still fair game there; it is
+//     page furniture, not what the user came to see.
+//
+// Checked here, in hidePost, because every rule ends up here. The dialog check
+// that used to live in individual rules was only ever in some of them: the
+// label route's article/pagelet branch had none, which is the gap this post
+// fell through.
+const SINGLE_POST_PATH_RE =
+  /\/(posts|permalink|videos|reel|photos)\/[^/]|\/(permalink|story|photo)\.php$|^\/photo\/?$|^\/share\/[a-z]\/|^\/marketplace\/item\/|^\/commerce\/listing\//;
+
+// The harness cannot change its own address - it runs from a data: URL - so it
+// sets this instead. A page script cannot reach it: content scripts run in an
+// isolated world, and Facebook's globals are not ours.
+function currentUrl() {
+  const forced = globalThis.__FBSB_TEST_URL__;
+  if (forced) {
+    try {
+      return new URL(forced);
+    } catch (e) {
+      /* fall through to the real one */
+    }
+  }
+  return location;
+}
+
+function isSinglePostPage() {
+  const u = currentUrl();
+  if (SINGLE_POST_PATH_RE.test(u.pathname)) return true;
+  // /watch/ on its own is a feed of videos, with ads in it. /watch/?v=<id> is
+  // one video.
+  return /^\/watch\/?$/.test(u.pathname) && /[?&]v=/.test(u.search || "");
+}
+
+let openedPostsSpared = 0;
+
+function wasOpenedOnPurpose(container) {
+  if (container.closest('[role="dialog"]')) return true;
+  if (isSinglePostPage() && !container.closest('[role="complementary"]')) return true;
+  return false;
+}
+
 function hidePost(container, reason, label, via) {
   if (isPostReason(reason)) container = expandToCard(container);
+  if (isPostReason(reason) && wasOpenedOnPurpose(container)) {
+    openedPostsSpared += 1;
+    return;
+  }
   const originalDisplay = container.style.display || "";
   let placeholder = null;
 
@@ -1083,7 +1142,7 @@ document.addEventListener(
     if (!markerEnabled()) return;
     if (markerEl && e.target === markerEl) return;
     const inner = feedCardUnder(e.target);
-    if (!inner || inner.closest("[data-fbsb-hidden]")) {
+    if (!inner || inner.closest("[data-fbsb-hidden]") || inner.closest('[role="dialog"]')) {
       hideMarker();
       return;
     }
@@ -1673,6 +1732,7 @@ function buildDiagnostics() {
     unlabeled: unlabeledAdsHidden,
     shapeHides: shapeHides.slice(),
     released: viewersReleased,
+    spared: openedPostsSpared,
     // Cumulative since page load in a release build — reportStats returns early
     // when DEBUG is false, so nothing resets these. In a DEBUG build they are a
     // rolling 2s window instead, which is worth remembering before comparing

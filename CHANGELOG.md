@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.1.85
+
+### Fixed
+
+- **A post you opened on purpose is never hidden now.** Reported 2026-09-23: a
+  friend shared a post from a buy-and-sell group in Messenger, and opening it
+  showed nothing. The post carries a "Join" button, so the unfollowed rule hid
+  it inside the very viewer that had just been clicked into — and the only way
+  to read it was to switch that rule off for everything.
+
+  Every rule here exists to curate a feed nobody chose. None of them should get
+  a say over a post somebody did. So there is now one check that every rule
+  passes through before anything is hidden, and it spares:
+
+  - anything inside a viewer — a post clicked into, a photo, a reel, a link
+    followed from chat;
+  - the post on a page that *is* that post — a permalink, loaded directly or
+    from a link outside Facebook.
+
+  The right-hand column is still filtered on a post's own page; it is page
+  furniture, not what you came to see.
+
+  Checked in one place because the dialog checks that already existed lived in
+  individual rules, and only some of them. The route this post took had none.
+
+- The "This is an ad" button no longer appears inside viewers either.
+
+### Added
+
+- The Diagnostics panel reports `opened posts spared` beside `viewers
+  released`.
+
+### Verified
+
+44 fixtures, twenty of them false-positive guards. The two new ones are the
+shared post, in a viewer and on its own page, and both were confirmed to fail on
+1.1.84 first. A third is a guard on the guard: on a post's own page, an ad in
+the right-hand column must still be hidden.
+
 ## 1.1.84
 
 ### Changed

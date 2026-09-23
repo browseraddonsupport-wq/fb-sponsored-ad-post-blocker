@@ -221,6 +221,9 @@ CONTENT_JS
     // fixture: the guard proving the shape rule is off by default was itself
     // run with the rule left on by the fixture before it, and failed.
     Object.assign(settings, DEFAULT_SETTINGS);
+    // Which page the fixture is on. Reset every time, or a permalink set by
+    // one fixture would silently spare every card in the ones after it.
+    window.__FBSB_TEST_URL__ = f.url || null;
     if (f.settings) Object.assign(settings, f.settings);
 
     // A throw in here used to stop the run dead: the page sat on "running..."

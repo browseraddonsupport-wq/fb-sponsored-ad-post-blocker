@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "Reported 2026-09-23: a friend shared a post from a buy-and-sell group in Messenger, and opening it showed nothing. The post carries a 'Join' button, so the unfollowed rule hid it inside the viewer the user had just clicked into - the only way to read it was to switch that rule off. A post opened on purpose is not feed.",
+  "card": "<div role=\"dialog\"><div><div class=\"x1lliihq\" style=\"width:680px;height:700px\"><div><h2>Local Buy, Sell, Trade</h2><div role=\"button\">Join</div><a href=\"/groups/1234567890/user/42/\">A Seller</a><span>September 15 at 5:12 PM</span></div><span>2004 Ford Mustang GT deluxe coupe with 4,589 original miles, 5 speed manual, V8, butterfly doors. $21,500 OBO.</span><div><a href=\"/photo/?fbid=111\"><img style=\"width:340px;height:340px\"></a><a href=\"/photo/?fbid=222\"><img style=\"width:340px;height:340px\"></a></div></div></div></div>"
+}

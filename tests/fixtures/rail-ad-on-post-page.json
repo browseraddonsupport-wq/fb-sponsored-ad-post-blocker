@@ -1,0 +1,6 @@
+{
+  "expect": "hidden",
+  "why": "GUARD ON THE GUARD. Sparing the post a user opened must not spare the whole page. The right-hand rail is furniture, not what they came to see, and an ad in it goes whether the page behind it is a feed or a single post.",
+  "url": "https://www.facebook.com/groups/1234567890/permalink/9876543210/",
+  "card": "<div role=\"complementary\"><div><div style=\"width:340px;height:300px\"><span>Sponsored</span><span>The best deals on everything you need this weekend only.</span><a href=\"https://shop.example/deals\">Shop now</a></div></div></div>"
+}
