@@ -33,7 +33,7 @@ html = """<!doctype html><meta charset="utf-8"><title>fbsb fixture tests</title>
 <style>
  body{font:13px ui-monospace,Menlo,Consolas,monospace;margin:16px;background:#111;color:#ddd}
  .pass{color:#4ade80} .fail{color:#f87171} .why{color:#888;margin-left:2em}
- h1{font-size:15px} #sandbox{position:absolute;left:-99999px;top:0}
+ h1{font-size:15px} #sandbox{position:absolute;left:-99999px;top:0;width:1000px}
 </style>
 <h1>F.B. Sponsored/Ad Post Blocker — fixture tests</h1>
 <pre id="out">running...</pre>
@@ -57,6 +57,11 @@ CONTENT_JS
   var out = document.getElementById("out");
   var sandbox = document.getElementById("sandbox");
   var NL = String.fromCharCode(10);
+  // The sandbox is 1000px wide on purpose. Left to shrink-wrap its contents it
+  // came out at feed-post width, which made it indistinguishable from a card -
+  // so a document-wide sweep could select the sandbox itself, hide it, and
+  // every fixture after that point sat inside a hidden container and "failed"
+  // for a reason that had nothing to do with the fixture.
   var lines = [], pass = 0, fail = 0;
 
   // The marker goes on whatever findPostContainer returned - usually an
@@ -118,7 +123,7 @@ CONTENT_JS
 
   // Everything that can throw, in one place, so buildAndCheck can report a
   // throw as a failed fixture instead of stopping the run.
-  function driveFixture(f, host) {
+  function driveFixture(f, host, card) {
     // Drive the same two steps the MutationObserver performs, rather than
     // waiting on it. scheduleScan defers through requestAnimationFrame, which
     // does not fire reliably in a background or hidden tab - the first runs of
@@ -142,7 +147,6 @@ CONTENT_JS
     // hypothetical - a user reported clicking into comments and getting a
     // blank screen. The hide has to let go, whatever earned it.
     if (f.dialogAfterHide) {
-      var card = host.querySelector("[style*='width:680px']");
       var dialog = document.createElement("div");
       dialog.setAttribute("role", "dialog");
       dialog.textContent = "comments";
@@ -183,6 +187,14 @@ CONTENT_JS
     // climb that expands a hide to the whole card walked straight out of the
     // fixture and into the harness. On the real page those wrappers belong to
     // the card; here they do not, and nothing said so.
+    // Captured BEFORE the scan, and this matters. Setting style.display
+    // re-serialises the whole style attribute, so "width:680px" comes back as
+    // "width: 680px" with a space and this selector stops matching the very
+    // element it was written for. The assertion then fell back to the outer
+    // wrapper, the dialog hook appended to the wrong node, and a working fix
+    // reported as a failure.
+    var card = host.querySelector("[style*='width:680px']") || host.firstElementChild;
+
     var neighbour = document.createElement("div");
     neighbour.style.cssText = "width:680px;height:400px";
     neighbour.textContent = "a neighbouring post, so this container is a feed";
@@ -203,7 +215,7 @@ CONTENT_JS
     // An editing mistake that deleted a function definition cost several
     // minutes that way. Report it as a failure against the fixture that hit it.
     try {
-      driveFixture(f, host);
+      driveFixture(f, host, card);
     } catch (err) {
       fail++;
       lines.push("<span class='fail'>ERROR</span>  " + f.name + "   threw: " + err.message);
@@ -214,7 +226,6 @@ CONTENT_JS
 
     // Let the observer and the rAF-coalesced scan run, as they would live.
     setTimeout(function () {
-      var card = host.querySelector("[style*='width:680px']") || host.firstElementChild;
       var hidden = isHidden(host, card);
       var want = f.expect === "hidden";
       var ok = hidden === want;

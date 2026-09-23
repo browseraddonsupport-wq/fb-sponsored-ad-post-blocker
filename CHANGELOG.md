@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.1.79
+
+Both of 1.1.78's fixes missed on a live feed. The stories tray was hidden five
+times in one reading, and the timestamp veto never fired at all — Facebook
+served that page with no byline references anywhere, so the survey read
+`0 dangling, 0 resolve cleanly` across every visible card. A veto that depends
+on a signal Facebook may simply omit cannot be the only safeguard.
+
+### Fixed
+
+- **The stories tray, counted properly.** Its tiles link three segments deep
+  (`/stories/<id>/<token>`), and the subject count only recognised
+  single-segment profile links — so a tray whose tiles pointed at two pages
+  came to two, under the limit. A story tile is a subject like any
+  other.
+
+- **A container of several posts could be hidden whole.** The "is this more
+  than one post?" test was asked about the candidate's parent and never about
+  the candidate itself, so a block of three posts that happened to fit under
+  the height ceiling was eligible — three real posts gone on one judgement
+  meant for one.
+
+- **Nothing is hidden near an open viewer now.** 1.1.77 checked the element the
+  rule settled on; after releasing a card the sweep came straight back and hid
+  an inner block of it, because the element it chose that time did not itself
+  contain the viewer.
+
+### Changed — test harness
+
+- **The sandbox is explicitly 1000px wide.** Left to shrink-wrap, it came out
+  at feed-post width and was indistinguishable from a card, so a document-wide
+  sweep could select and hide the sandbox itself — after which every remaining
+  fixture failed for a reason that had nothing to do with the fixture.
+
+- **The fixture card is captured before the scan.** Setting `style.display`
+  re-serialises the whole attribute, so `width:680px` comes back as
+  `width: 680px` and the runner's own selector stopped matching the element it
+  was written for. The assertion silently fell back to the outer wrapper, and a
+  working fix reported as a failure for most of an afternoon.
+
+### Verified
+
+33 fixtures, fifteen of them false-positive guards.
+
 ## 1.1.78
 
 The audit list caught what it was built to catch. On 2026-09-23 it named

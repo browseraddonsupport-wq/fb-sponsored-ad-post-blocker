@@ -923,6 +923,19 @@ function restorePost(container) {
 // immediately rather than waiting to work out why.
 let viewersReleased = 0;
 
+// A viewer anywhere in this card, above or below the given element, up to the
+// point where the climb would leave the card.
+function nearViewer(el) {
+  if (el.closest('[role="dialog"]')) return true;
+  let node = el;
+  for (let i = 0; i < SHAPE_MAX_CLIMB && node && node !== document.body; i++) {
+    if (node.querySelector('[role="dialog"]')) return true;
+    if (node.getBoundingClientRect().width > FEED_POST_MAX_WIDTH) break;
+    node = node.parentElement;
+  }
+  return false;
+}
+
 function releaseHiddenAround(dialog) {
   for (const [container] of hiddenPosts) {
     if (container.contains(dialog) || dialog.contains(container)) {
@@ -1834,14 +1847,23 @@ function hasResolvingTimestamp(card) {
 const MAX_PROFILE_LINKS = 3;
 
 function bylineCount(card) {
-  const profiles = new Set();
+  const subjects = new Set();
   for (const a of card.querySelectorAll("a[href]")) {
     const path = linkPath(a);
-    if (/^\/[^/]+\/?$/.test(path) && path !== "/" && path !== OUTBOUND_PATH) {
-      profiles.add(path.replace(/\/$/, ""));
+    if (!path || path === "/" || path === OUTBOUND_PATH) continue;
+    // A story tile counts as a subject even though its path is three segments
+    // deep. Counting only single-segment profile links missed the tray
+    // entirely: its tiles link to /stories/<id>/<token>, and the two that did
+    // link to a page - /meijer, /DunkinUS - came to two, under the limit. It
+    // was hidden five times in one reading.
+    const story = /^\/stories\/(\d+)/.exec(path);
+    if (story) {
+      subjects.add("story:" + story[1]);
+    } else if (/^\/[^/]+\/?$/.test(path)) {
+      subjects.add(path.replace(/\/$/, ""));
     }
   }
-  return profiles.size;
+  return subjects.size;
 }
 
 function isDanglingRef(el) {
@@ -1928,7 +1950,11 @@ function cardFromLabelRef(el) {
       r.width >= FEED_POST_MIN_WIDTH && r.width <= FEED_POST_MAX_WIDTH &&
       r.height >= FEED_POST_MIN_HEIGHT && r.height <= UNHIDDEN_MAX_HEIGHT
     ) {
-      best = node;
+      // Only if it is one post. holdsSeveralCards was asked about the parent
+      // and never about the candidate itself, so a container of three posts
+      // that happened to fit under the height ceiling could be chosen whole -
+      // three real posts gone on one judgement meant for one.
+      if (!holdsSeveralCards(node)) best = node;
       const pr = parent.getBoundingClientRect();
       if (pr.width > r.width * DESKTOP_CARD_WIDTH_JUMP) break;
       if (holdsSeveralCards(parent)) break;
@@ -2014,11 +2040,12 @@ function sweepUnlabeledAds(root) {
   const seen = new Set();
   const consider = (el, card) => {
     if (!card) return;
-    // Reels and the photo viewer render in a dialog, never a feed card. Both
-    // directions: the entry element may sit outside a viewer that the card
-    // above it contains, and hiding that card takes the viewer with it.
-    if (el.closest('[role="dialog"]')) return;
-    if (card.closest('[role="dialog"]') || card.querySelector('[role="dialog"]')) return;
+    // Nothing anywhere near an open viewer. Checking the chosen element and its
+    // ancestors was not enough: after a release the sweep came straight back
+    // and hid an inner block of the same card, because the element it settled
+    // on that time did not itself contain the viewer. The question that
+    // matters is whether a viewer is open in this card at all.
+    if (nearViewer(card)) return;
     if (seen.has(card)) return;
     seen.add(card);
     if (hiddenPosts.has(card)) return;
@@ -2027,6 +2054,7 @@ function sweepUnlabeledAds(root) {
     // A byline that still tells you how old the post is. An ad's does not.
     if (hasResolvingTimestamp(card)) return;
     if (bylineCount(card) > MAX_PROFILE_LINKS) return;
+    if (holdsSeveralCards(card)) return;
     if (!looksLikePost(card)) return;
     unlabeledAdsHidden += 1;
     if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));
