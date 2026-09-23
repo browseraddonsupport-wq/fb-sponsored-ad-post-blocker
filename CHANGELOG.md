@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.78
+
+The audit list caught what it was built to catch. On 2026-09-23 it named
+three Pages posting normally, hidden as ads.
+
+### Fixed
+
+- **A byline that still says how old the post is now vetoes the shape rule.**
+  Every post left showing in that panel carried a byline reference resolving to
+  a time — "27 minutes ago", "7 hours ago", "about an hour ago" — and every ad's
+  was dangling or absent. Facebook puts "Sponsored" where a post puts its age,
+  and the ad's version has no text at all.
+
+  This replaces enumerating permalink shapes as the main safeguard, which was
+  never going to hold: `/stories/<id>/` is used by ads *and* by real posts, so
+  it can sit in neither list, and Pages whose self-link took that form were
+  being hidden. A timestamp is not a shape Facebook can quietly rename.
+
+- **The stories tray, a third time.** "Online status indicatorActive ->
+  /<page>". Counting story links only caught it when several tiles happened to
+  be linked at once; it is now caught by counting subjects. A post has one, the
+  tray has one per tile.
+
+- **Five word boundaries in the new timestamp pattern were literal backspace
+  characters**, so `ago` matched nothing and the veto would have failed
+  open — every Page post above would still have been hidden. Caught by checking
+  the bytes rather than reading the line, which renders identically either way.
+  This is the second time this exact trap has bitten in this project.
+
+### Verified
+
+33 fixtures, fifteen of them false-positive guards. Both new guards were
+checked against the rule they guard — the Page post is stopped only by the
+timestamp, the tray only by the subject count, and a real ad still qualifies on
+both counts — rather than only checked for passing.
+
 ## 1.1.77
 
 Reported 2026-09-23: clicking into comments on a post or a picture sometimes

@@ -1799,6 +1799,51 @@ function isOutboundLink(a) {
   return !!m && !FACEBOOK_HOST_RE.test(m[1]);
 }
 
+// The strongest signal yet that a card is a real post, and it came straight
+// out of a panel: every post left showing on 2026-09-23 carried a byline
+// reference that RESOLVED to a time - "27 minutes ago", "7 hours ago", "about
+// an hour ago" - while every ad's was dangling or absent. Facebook puts
+// "Sponsored" where a post puts its age, and the ad's version has no text.
+//
+// This matters more than it sounds. Enumerating permalink shapes was never
+// going to hold: /stories/<id>/ is used by ads AND by real posts, so it can
+// sit in neither list, and Pages whose self-link took that form were being
+// hidden as ads - Detroit Lions, Michigan Democratic Party, Mer in Michigan
+// all appeared in the audit list on that reading. A timestamp is not a shape
+// Facebook can quietly rename.
+const TIMESTAMP_RE = /(\bago\b|^(just now|yesterday|today)\b|^\d{1,3}\s?(s|m|h|d|w|y)$|^[a-z]{3,9}\s\d{1,2}(\s|,|$)|\bat\b\s\d{1,2}:\d{2})/i;
+
+function hasResolvingTimestamp(card) {
+  for (const el of card.querySelectorAll("[aria-labelledby]")) {
+    for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+      if (!id) continue;
+      const target = document.getElementById(id);
+      const text = target
+        ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
+        : labelTextById.get(id);
+      if (text && TIMESTAMP_RE.test(text)) return true;
+    }
+  }
+  return false;
+}
+
+// A post has one subject. The stories tray has one per tile, and it kept
+// getting taken - "Online status indicatorActive -> /meijer" on this reading,
+// "-> /stories/1221077..." on the one before. Counting story links caught the
+// tray only when several tiles happened to be linked at once.
+const MAX_PROFILE_LINKS = 3;
+
+function bylineCount(card) {
+  const profiles = new Set();
+  for (const a of card.querySelectorAll("a[href]")) {
+    const path = linkPath(a);
+    if (/^\/[^/]+\/?$/.test(path) && path !== "/" && path !== OUTBOUND_PATH) {
+      profiles.add(path.replace(/\/$/, ""));
+    }
+  }
+  return profiles.size;
+}
+
 function isDanglingRef(el) {
   for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
     if (!id) continue;
@@ -1979,6 +2024,9 @@ function sweepUnlabeledAds(root) {
     if (hiddenPosts.has(card)) return;
     if (card.closest("[data-fbsb-hidden]")) return;
     if (hasPermalink(card)) return;
+    // A byline that still tells you how old the post is. An ad's does not.
+    if (hasResolvingTimestamp(card)) return;
+    if (bylineCount(card) > MAX_PROFILE_LINKS) return;
     if (!looksLikePost(card)) return;
     unlabeledAdsHidden += 1;
     if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));

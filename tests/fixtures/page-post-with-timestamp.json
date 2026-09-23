@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD, from the audit list on 2026-09-23: Detroit Lions, Michigan Democratic Party and Mer in Michigan were all hidden as ads. A Page you follow posting a link looks exactly like an ad to the permalink veto when its self-link is /stories/<id>/ - a shape ads use too, so it can never go in the veto list. What it does have is a byline that still says how old it is; an ad's says 'Sponsored' and has no text at all.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/DetroitLions\">Detroit Lions</a><span>&middot;</span><span aria-labelledby=\"_r_ts1_\"><span></span></span></div><span id=\"_r_ts1_\">27 minutes ago</span><span>Full highlights from Sunday's win are up now on the team site.</span><a href=\"/stories/173851227438515/Uzp\"><span>2.2K</span></a><a href=\"https://www.detroitlions.com/highlights\"><span>DETROITLIONS.COM</span></a></div></div></div>"
+}
