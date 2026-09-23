@@ -1008,8 +1008,30 @@ function feedCardUnder(node) {
   return null;
 }
 
+let markerMedia = null;
+
+// The post's main picture or video - the largest one in the card. Avatars,
+// reaction icons and emoji are all far below this, so they never qualify.
+const MARKER_MEDIA_MIN_WIDTH = 200;
+const MARKER_MEDIA_MIN_HEIGHT = 150;
+
+function mainMediaOf(card) {
+  let best = null;
+  let bestArea = 0;
+  for (const m of card.querySelectorAll("img, video")) {
+    const r = m.getBoundingClientRect();
+    if (r.width < MARKER_MEDIA_MIN_WIDTH || r.height < MARKER_MEDIA_MIN_HEIGHT) continue;
+    if (r.width * r.height > bestArea) {
+      best = m;
+      bestArea = r.width * r.height;
+    }
+  }
+  return best;
+}
+
 function hideMarker() {
   markerCard = null;
+  markerMedia = null;
   if (markerEl) markerEl.style.display = "none";
 }
 
@@ -1024,23 +1046,24 @@ function ensureMarker() {
     e.preventDefault();
     e.stopPropagation();
     if (!markerCard) return;
-    const page = pageNameFor(markerCard);
     const card = markerCard;
+    const page = pageNameFor(card);
     hideMarker();
-    if (!page) return;
-    addToPageList("adPages", page);
-    // Hide it now rather than waiting for the next sweep, so the click has a
-    // visible result even if this particular post is not ad-shaped.
+    // Hide the post whether or not its page could be named: the click asked
+    // for this ad to go, and a page with no readable name is no reason to
+    // leave it standing.
+    if (page) addToPageList("adPages", page);
     if (!hiddenPosts.has(card)) hidePost(card, "sponsored", card, "marked");
   });
   document.body.appendChild(markerEl);
   return markerEl;
 }
 
-function positionMarkerOver(card) {
+function positionMarkerOver(card, media) {
   const el = ensureMarker();
-  const r = card.getBoundingClientRect();
+  const r = media.getBoundingClientRect();
   markerCard = card;
+  markerMedia = media;
   el.style.display = "block";
   el.style.top = Math.max(4, r.top + 8) + "px";
   el.style.left = r.left + 8 + "px";
@@ -1059,12 +1082,33 @@ document.addEventListener(
   (e) => {
     if (!markerEnabled()) return;
     if (markerEl && e.target === markerEl) return;
-    const card = feedCardUnder(e.target);
-    if (!card || card.closest("[data-fbsb-hidden]")) {
+    const inner = feedCardUnder(e.target);
+    if (!inner || inner.closest("[data-fbsb-hidden]")) {
       hideMarker();
       return;
     }
-    if (card !== markerCard) positionMarkerOver(card);
+    // Over the picture and nowhere else. The button used to attach to
+    // whichever card-shaped block the pointer was in, so it turned up over the
+    // page name and the post text too, and a click there recorded the wrong
+    // thing. Now the post is resolved to the whole card, and the button shows
+    // only while the pointer is inside that card's main picture or video.
+    //
+    // Measured by position rather than by what the pointer is on: Facebook
+    // lays transparent layers over its images, so the element under the
+    // pointer is rarely the <img> itself.
+    const card = expandToCard(inner);
+    const media = mainMediaOf(card);
+    if (!media) {
+      hideMarker();
+      return;
+    }
+    const r = media.getBoundingClientRect();
+    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!over) {
+      hideMarker();
+      return;
+    }
+    if (card !== markerCard || media !== markerMedia) positionMarkerOver(card, media);
   },
   true
 );
@@ -1975,11 +2019,40 @@ const MAX_PROFILE_LINKS = 3;
 
 // "/DetroitLions", "DetroitLions", "facebook.com/DetroitLions" all mean the
 // same thing to someone typing it in, so accept all of them.
+// Facebook's own routes. None of them is a page, and treating one as a page
+// name is dangerous rather than merely useless: 1.1.82 recorded "photo" from a
+// click on a post's picture - the first link inside a picture is /photo/ - and
+// since nearly every photo post links there, that one entry set aside the
+// "this is a real post" veto for all of them. Ignored wherever they appear,
+// including in a list that already holds one.
+const RESERVED_PATHS = new Set([
+  "photo", "photos", "photo.php", "watch", "reel", "reels", "video", "videos",
+  "video.php", "stories", "story.php", "permalink.php", "profile.php", "posts",
+  "events", "marketplace", "commerce", "l.php", "share", "sharer", "sharer.php",
+  "hashtag", "pages", "gaming", "search", "help", "ads", "business", "messages",
+  "notifications", "friends", "bookmarks", "saved", "media", "notes", "live",
+  "fundraisers", "people", "public", "login", "login.php", "home.php",
+  "settings", "privacy", "policies", "legal", "dialog", "plugins", "about",
+  "groups", "watchparty",
+]);
+
+// A page with no vanity address is /profile.php?id=<number>, and the id is its
+// only identity - 1.1.73's audit showed one as "Vibe.co -> /profile.php".
+function profileIdOf(a) {
+  const m = /[?&]id=(\d+)/.exec(a.getAttribute("href") || "");
+  return m ? m[1] : null;
+}
+
 function pageSet(value) {
   const out = new Set();
   for (const raw of (value || "").split(/[\n,]/)) {
-    const name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
-    if (name) out.add(name);
+    let name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+/, "");
+    const pid = /^profile\.php\?(?:[^#]*&)?id=(\d+)/i.exec(name);
+    // A pasted address usually carries ?ref=... or similar, which is not part
+    // of the page's name and would otherwise make it match nothing.
+    name = pid ? "profile.php?id=" + pid[1] : name.split(/[?#]/)[0];
+    name = name.replace(/\/+$/, "").toLowerCase();
+    if (name && !RESERVED_PATHS.has(name)) out.add(name);
   }
   return out;
 }
@@ -1987,9 +2060,16 @@ function pageSet(value) {
 function cardOnList(card, names) {
   if (names.size === 0) return false;
   for (const a of card.querySelectorAll("a[href]")) {
+    // An external site's path is not a page on Facebook, however it reads.
+    if (isOutboundLink(a)) continue;
     const path = linkPath(a);
     if (!path || path === "/") continue;
     const segments = path.replace(/^\/+|\/+$/g, "").split("/");
+    if (segments[0].toLowerCase() === "profile.php") {
+      const id = profileIdOf(a);
+      if (id && names.has("profile.php?id=" + id)) return true;
+      continue;
+    }
     if (names.has(segments[0].toLowerCase())) return true;
     // A group post's identity is /groups/<id>, not the first segment.
     if (segments.length > 1 && names.has((segments[0] + "/" + segments[1]).toLowerCase())) return true;
@@ -2009,11 +2089,22 @@ function isAdPage(card) {
 // link that names somebody, whether an advertiser's own page or a group.
 function pageNameFor(card) {
   for (const a of card.querySelectorAll("a[href]")) {
+    // stokeshoes.com/versa has the path "/versa", which reads exactly like a
+    // page name. It is somebody else's website.
+    if (isOutboundLink(a)) continue;
     const path = linkPath(a);
-    if (!path || path === "/" || path === OUTBOUND_PATH) continue;
+    if (!path || path === "/") continue;
     const segments = path.replace(/^\/+|\/+$/g, "").split("/");
-    if (segments[0] === "groups" && segments[1]) return segments[0] + "/" + segments[1];
-    if (segments.length === 1 && segments[0] && !/^\d+$/.test(segments[0])) return segments[0];
+    const first = (segments[0] || "").toLowerCase();
+    if (first === "groups" && segments[1]) return "groups/" + segments[1];
+    if (first === "profile.php") {
+      const id = profileIdOf(a);
+      if (id) return "profile.php?id=" + id;
+      continue;
+    }
+    if (segments.length === 1 && first && !RESERVED_PATHS.has(first) && !/^\d+$/.test(first)) {
+      return segments[0];
+    }
   }
   return null;
 }

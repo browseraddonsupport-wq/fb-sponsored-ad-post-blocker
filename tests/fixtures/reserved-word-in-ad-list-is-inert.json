@@ -1,0 +1,8 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD, from a real list on 2026-09-23. Clicking 'This is an ad' on a post's picture recorded 'photo' as a page name, because the first link inside a picture is /photo/. Nearly every photo post links there, so that one entry treated every photo post on Facebook as a marked advertiser and set aside the 'this is a real post' veto for all of them. A Facebook route in the list must match nothing.",
+  "settings": {
+    "adPages": "DetroitLions\nphoto"
+  },
+  "card": "<div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><a href=\"/afriend\">A Friend</a><span>&middot;</span><a href=\"/afriend/posts/pfbid0abc\">2h</a></div><span>Great weekend at the lake with everyone, back again next month.</span><a href=\"/photo/?fbid=123456789\"><span>photo</span></a><a href=\"https://news.example/story\"><span>NEWS.EXAMPLE</span></a></div></div></div>"
+}

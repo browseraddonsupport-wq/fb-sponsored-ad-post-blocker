@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "An address copied from the browser bar usually carries ?ref=... or similar. That is not part of the page's name, and keeping it made the entry match nothing - so a page the user had plainly marked was never treated as one.",
+  "settings": {
+    "adPages": "https://www.facebook.com/TMZ?ref=bookmarks"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/TMZ\">TMZ</a><span>&middot;</span><a href=\"/TMZ/posts/pfbid0xyz\">1h</a></div><span>You will not believe what happened at the premiere last night, full story inside.</span><a href=\"https://www.tmz.com/story\"><span>TMZ.COM</span></a></div></div></div>"
+}

@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "A page with no vanity address is /profile.php?id=<number> - 1.1.73's audit showed one as 'Vibe.co -> /profile.php'. Its id is its only identity, and before this every such page reduced to the same reserved route, so it could not be marked at all. The card links to itself on purpose: without that the ordinary shape rule hides it regardless, and the first version of this fixture passed on the code it was written to catch.",
+  "settings": {
+    "adPages": "https://www.facebook.com/profile.php?id=100064123456789"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/profile.php?id=100064123456789\">Vibe.co</a><span>&middot;</span></div><span>Advertise on streaming TV the easy way, set up a campaign in minutes today.</span><a href=\"/permalink.php?story_fbid=987&amp;id=100064123456789\">3h</a><a href=\"https://www.vibe.co/start\"><span>VIBE.CO</span></a></div></div></div>"
+}

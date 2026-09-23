@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.84
+
+### Changed
+
+- **"This is an ad" appears over the picture and nowhere else.** It attached to
+  whichever card-shaped block the pointer was in, so it turned up over the page
+  name and over the post text as well. It now shows only while the pointer is
+  inside the post's main picture or video, sits at that picture's corner, and
+  clicking it hides the **whole** post.
+
+  Measured by position rather than by what the pointer is resting on, because
+  Facebook lays transparent layers over its images and the element under the
+  pointer is rarely the image itself. A post with no picture has no button.
+
+### Fixed
+
+- **The button recorded "photo" as an advertiser.** Clicked on a picture, it
+  took the first link it found — and the first link inside a picture is
+  `/photo/`. Nearly every photo post links there, so that one entry treated
+  every photo post on Facebook as a marked advertiser and set aside the
+  "this is a real post" check for all of them. Facebook's own routes (`photo`,
+  `watch`, `reel`, `stories` and the rest) are never recorded now, and are
+  ignored if a list already contains one — so an existing `photo` entry is
+  harmless, though still worth deleting.
+
+- **It could also record an advertiser's website as a page.** A shop link like
+  `<shop>.com/<product>` has the path `/<product>`, which reads exactly like a
+  page name. Links that leave Facebook are no longer considered.
+
+- **Pages without a vanity address could not be marked at all.** Their address
+  is `profile.php?id=<number>`, and every one of them reduced to the same
+  reserved route. They are recorded and matched by id now.
+
+- **An address pasted from the browser bar matched nothing** when it carried
+  `?ref=...` or similar, which is usually. The query is ignored now.
+
+### Verified
+
+41 fixtures, nineteen of them false-positive guards. The three new ones were
+each run against 1.1.83 first and confirmed to fail there — one did not on its
+first draft, because the ordinary shape rule hid that card regardless of the
+marking, so it was given a real permalink until only the fix could hide it.
+
+The button itself was checked directly: hovering the page name, the avatar,
+the post text and the shop link shows nothing; hovering the picture shows the
+button at its corner; clicking it records the page's name and hides the
+post, header included.
+
 ## 1.1.83
 
 A screenshot on 2026-09-23 showed every hide option unticked, `0 posts hidden`,
