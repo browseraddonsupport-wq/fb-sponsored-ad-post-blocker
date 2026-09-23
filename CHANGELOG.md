@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.1.80
+
+Confirmed false positive: the shape rule hid a post from a Page the user
+follows. On a page load serving neither a byline timestamp nor a
+permalink it recognises, a followed Page sharing a link is indistinguishable
+from an advertiser sharing one — there is no signal left to tell them apart.
+
+### Added
+
+- **A keep list.** "Never hide posts from these pages", in the popup: one page
+  name per line, as it appears in the page's address. Nothing named there is
+  ever hidden by the shape rule. The audit list already names whatever the rule
+  took, so recovering a lost page is a copy and a paste.
+
+  This is a real fix rather than a workaround only because the rule cannot be
+  tightened into correctness here: every guard that would have saved that
+  post also lets advertisers through, and the whole point of the extension is
+  that they do not.
+
+- **The audit list explains itself.** Each entry now carries the three things
+  the rule actually consults — `ts=` whether the byline resolves to a time,
+  `subj=` how many subjects the card links to, `perma=` whether it links to
+  itself — plus the card's links. Asked why one such post matched, the honest
+  answer was that I had never seen the card, only its name.
+
+### Changed — test harness
+
+- **The build refuses to run if an escape sequence has been eaten.** Three
+  times now one has been: a word boundary arriving as a literal backspace,
+  twice, so the boundary matched nothing; and a newline escape arriving as a
+  real line break, which split a regex across two lines and stopped content.js
+  parsing entirely. All three read correctly in an editor, so the check reads
+  the bytes.
+
+- **A parse failure now says so.** The runner sat on "running…" forever, which
+  looks exactly like an infinite loop and twice cost far longer to diagnose
+  than the typo behind it.
+
+### Verified
+
+35 fixtures, seventeen of them false-positive guards. Two are new: the followed
+Page's post, checked to confirm it is hidden *without* the keep list and visible with
+it, and a guard proving a keep list does not switch the rule off for everyone
+else.
+
 ## 1.1.79
 
 Both of 1.1.78's fixes missed on a live feed. The stories tray was hidden five

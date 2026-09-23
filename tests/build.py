@@ -62,6 +62,15 @@ CONTENT_JS
   // so a document-wide sweep could select the sandbox itself, hide it, and
   // every fixture after that point sat inside a hidden container and "failed"
   // for a reason that had nothing to do with the fixture.
+  // If content.js did not parse, nothing below is defined and the page sits on
+  // "running..." forever - which looks exactly like an infinite loop and has
+  // twice cost far longer to diagnose than the typo behind it.
+  if (typeof scanRoot !== "function") {
+    out.innerHTML = "<span class='fail'>ERROR</span>  content.js did not parse - " +
+      "nothing is defined. Open the console on this page for the SyntaxError.";
+    return;
+  }
+
   var lines = [], pass = 0, fail = 0;
 
   // The marker goes on whatever findPostContainer returned - usually an
@@ -241,6 +250,19 @@ CONTENT_JS
 })();
 </script>
 """
+
+# Three times now an escape sequence has been eaten on its way into
+# content.js: a word-boundary escape twice, arriving as a literal backspace
+# so the boundary matched nothing, and a newline escape once, arriving as a
+# real line break that split a regex across two lines and stopped the whole
+# file parsing. All three read correctly in an editor. Bytes do not lie, so
+# check the bytes.
+control = [(i, b) for i, b in enumerate(src.encode("utf-8"))
+           if b < 32 and b not in (9, 10, 13)]
+if control:
+    where = ", ".join("byte %d = 0x%02x" % (i, b) for i, b in control[:5])
+    raise SystemExit("content.js contains control characters (%s). An escape was "
+                     "eaten - check the bytes, not the rendering." % where)
 
 html = html.replace("FIXTURES_JSON", json.dumps(fixtures))
 html = html.replace("CONTENT_JS", src)

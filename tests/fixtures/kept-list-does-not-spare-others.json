@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "GUARD ON THE GUARD. A keep list with a page in it must not switch the rule off for everything else - which is what a careless match on 'any link contains this text' would do. This advertiser is not on the list and must still go.",
+  "settings": {
+    "keepPages": "DetroitLions"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/FableticsMen\">Fabletics Men</a><span>&middot;</span><span aria-labelledby=\"_r_gone8_\"><span></span></span></div><span>Our biggest sale of the year ends at midnight tonight, do not miss it.</span><a href=\"/l.php?u=https%3A%2F%2Ffabletics.com\"><span>FABLETICS.COM</span></a></div></div></div>"
+}

@@ -57,6 +57,16 @@
         <input type="checkbox" id="hideUnlabeledAds" />
         <span>Hide ads Facebook doesn't label <em>(turn off if a real post ever disappears)</em></span>
       </label>
+      <!-- The named-page escape hatch. The shape rule cannot tell a Page you
+           follow posting a link from an advertiser posting one when Facebook
+           serves neither a timestamp nor a permalink, and the audit list in
+           Diagnostics names whatever it took - so the fix for a page you lost
+           is to paste its name here. -->
+      <label class="option keep-pages">
+        <span>Never hide posts from these pages</span>
+        <textarea id="keepPages" rows="2" placeholder="DetroitLions"></textarea>
+        <small>One per line, as it appears in the page's address.</small>
+      </label>
       <label class="option">
         <input type="checkbox" id="placeholderMode" />
         <span>Show a "Show" placeholder instead of removing completely</span>

@@ -36,6 +36,13 @@ const DEFAULT_SETTINGS = {
   // whose whole purpose is hiding ads should do that out of the box rather than
   // wait to be asked. The checkbox exists to switch it off if it misfires.
   hideUnlabeledAds: true,
+  // Pages that must never be hidden by the shape rule, one per line. Added
+  // 1.1.80 because the rule ate a Detroit Lions post: on a page load with no
+  // byline timestamp and no permalink it can recognise, a Page you follow
+  // posting a link is indistinguishable from an advertiser posting one. The
+  // audit list names the page, so this is the fix for the named page - and it
+  // holds whatever Facebook changes next.
+  keepPages: "",
   placeholderMode: false,
 };
 
@@ -1846,6 +1853,31 @@ function hasResolvingTimestamp(card) {
 // tray only when several tiles happened to be linked at once.
 const MAX_PROFILE_LINKS = 3;
 
+// "/DetroitLions", "DetroitLions", "facebook.com/DetroitLions" all mean the
+// same thing to someone typing it in, so accept all of them.
+function keptPageSet() {
+  const out = new Set();
+  for (const raw of (settings.keepPages || "").split(/[\n,]/)) {
+    const name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+|\/+$/g, "").toLowerCase();
+    if (name) out.add(name);
+  }
+  return out;
+}
+
+function isKeptPage(card) {
+  const kept = keptPageSet();
+  if (kept.size === 0) return false;
+  for (const a of card.querySelectorAll("a[href]")) {
+    const path = linkPath(a);
+    if (!path || path === "/") continue;
+    const segments = path.replace(/^\/+|\/+$/g, "").split("/");
+    if (kept.has(segments[0].toLowerCase())) return true;
+    // A group post's identity is /groups/<id>, not the first segment.
+    if (segments.length > 1 && kept.has((segments[0] + "/" + segments[1]).toLowerCase())) return true;
+  }
+  return false;
+}
+
 function bylineCount(card) {
   const subjects = new Set();
   for (const a of card.querySelectorAll("a[href]")) {
@@ -1994,15 +2026,25 @@ const MAX_SHAPE_AUDIT = 20;
 const shapeHides = [];
 
 function describeShapeHide(card) {
-  let fallback = "";
+  let who = "";
+  const paths = [];
   for (const a of card.querySelectorAll("a[href]")) {
     const path = linkPath(a);
-    if (!path || path === "/" || path === OUTBOUND_PATH) continue;
+    if (!path || path === "/") continue;
+    if (paths.length < 6 && !paths.includes(path)) paths.push(path.slice(0, 30));
+    if (path === OUTBOUND_PATH) continue;
     const text = (a.textContent || "").replace(INVISIBLE_CHARS_RE, "").trim();
-    if (text && text.length <= 40) return `${text} -> ${path.slice(0, 26)}`;
-    if (!fallback) fallback = path.slice(0, 26);
+    if (!who && text && text.length <= 40) who = `${text} -> ${path.slice(0, 26)}`;
   }
-  return fallback || "(no byline link)";
+  // A name alone was not enough to work out WHY a card matched. Asked to
+  // explain one Detroit Lions post, the honest answer was that I had never
+  // seen the card - only its name. These are the three things the rule
+  // actually consults.
+  return {
+    who: who || "(no byline link)",
+    why: `ts=${hasResolvingTimestamp(card) ? "yes" : "no"} subj=${bylineCount(card)} perma=${hasPermalink(card) ? "yes" : "no"}`,
+    links: paths,
+  };
 }
 
 // How often the whole document is re-checked. Until 1.1.71 the sweep ran only
@@ -2046,6 +2088,7 @@ function sweepUnlabeledAds(root) {
     // on that time did not itself contain the viewer. The question that
     // matters is whether a viewer is open in this card at all.
     if (nearViewer(card)) return;
+    if (isKeptPage(card)) return;
     if (seen.has(card)) return;
     seen.add(card);
     if (hiddenPosts.has(card)) return;

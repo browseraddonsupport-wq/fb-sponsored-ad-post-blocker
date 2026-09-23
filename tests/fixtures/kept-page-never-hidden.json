@@ -1,0 +1,8 @@
+{
+  "expect": "visible",
+  "why": "The named-page escape hatch, added after the shape rule hid a Detroit Lions post the user follows. On a page load serving neither a byline timestamp nor a permalink it can recognise, a followed Page sharing a link is identical to an advertiser sharing one - so this card matches the ad rule on every count and must survive anyway, purely because it is named in the keep list.",
+  "settings": {
+    "keepPages": "DetroitLions"
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/DetroitLions\">Detroit Lions</a><span>&middot;</span><span aria-labelledby=\"_r_gone7_\"><span></span></span></div><span>Full highlights from Sunday's win are up now on the team site.</span><a href=\"https://www.detroitlions.com/highlights\"><span>DETROITLIONS.COM</span></a></div></div></div>"
+}

@@ -134,3 +134,23 @@ footer {
   color: #8a8d91;
   text-align: center;
 }
+
+/* The keep-list is a block, not a checkbox row, so it opts out of the
+   flex layout the other options share. */
+.option.keep-pages {
+  display: block;
+}
+
+.option.keep-pages textarea {
+  width: 100%;
+  margin-top: 4px;
+  box-sizing: border-box;
+  font: inherit;
+  resize: vertical;
+}
+
+.option.keep-pages small {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.7;
+}

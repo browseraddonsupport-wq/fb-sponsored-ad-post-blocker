@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   hideUnfollowed: true,
   hideAppBanner: true,
   hideUnlabeledAds: true,
+  keepPages: "",
   placeholderMode: false,
 };
 
@@ -16,6 +17,7 @@ const hideSuggestedEl = document.getElementById("hideSuggested");
 const hideUnfollowedEl = document.getElementById("hideUnfollowed");
 const hideAppBannerEl = document.getElementById("hideAppBanner");
 const hideUnlabeledAdsEl = document.getElementById("hideUnlabeledAds");
+const keepPagesEl = document.getElementById("keepPages");
 const placeholderModeEl = document.getElementById("placeholderMode");
 const countEl = document.getElementById("count");
 const notFacebookEl = document.getElementById("notFacebook");
@@ -34,6 +36,7 @@ function save() {
     hideUnfollowed: hideUnfollowedEl.checked,
     hideAppBanner: hideAppBannerEl.checked,
     hideUnlabeledAds: hideUnlabeledAdsEl.checked,
+    keepPages: keepPagesEl.value,
     placeholderMode: placeholderModeEl.checked,
   });
 }
@@ -82,6 +85,7 @@ async function init() {
   hideUnfollowedEl.checked = settings.hideUnfollowed;
   hideAppBannerEl.checked = settings.hideAppBanner;
   hideUnlabeledAdsEl.checked = settings.hideUnlabeledAds;
+  keepPagesEl.value = settings.keepPages;
   placeholderModeEl.checked = settings.placeholderMode;
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -157,8 +161,12 @@ async function showDiagnostics(tabId) {
   // only part worth double-checking by eye.
   if (d.shapeHides && d.shapeHides.length) {
     lines.push("", `HIDDEN BY SHAPE (${d.unlabeled}, showing ${d.shapeHides.length}):`);
-    lines.push("  a real name here means the rule is wrong - untick it");
-    d.shapeHides.forEach((h) => lines.push(`  - ${h}`));
+    lines.push("  a page you follow here: paste its name into the keep list");
+    d.shapeHides.forEach((h) => {
+      if (typeof h === "string") { lines.push(`  - ${h}`); return; }
+      lines.push(`  - ${h.who}   [${h.why}]`);
+      if (h.links && h.links.length) lines.push(`      ${h.links.join(" ")}`);
+    });
   }
 
   if (d.unhidden && d.unhidden.length) {
@@ -205,5 +213,9 @@ copyDiagnosticsEl.addEventListener("click", () => {
 [hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, hideUnlabeledAdsEl, placeholderModeEl].forEach((el) =>
   el.addEventListener("change", save)
 );
+
+// "input" rather than "change": a textarea only fires change on blur, and a
+// popup is routinely dismissed without ever blurring the field.
+keepPagesEl.addEventListener("input", save);
 
 init();
