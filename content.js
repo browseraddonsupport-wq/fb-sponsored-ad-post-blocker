@@ -1046,8 +1046,12 @@ function positionMarkerOver(card) {
   el.style.left = r.left + 8 + "px";
 }
 
+// Its own setting and nothing else. 1.1.82 also required the shape rule to be
+// on, so with that unticked the popup said the button was enabled and no
+// button ever appeared - and marking is most useful precisely when ads are
+// getting through.
 function markerEnabled() {
-  return settings.showMarkers && settings.hideUnlabeledAds && !isMobileLayout();
+  return settings.showMarkers && !isMobileLayout();
 }
 
 document.addEventListener(
@@ -2212,7 +2216,12 @@ const SWEEP_INTERVAL_MS = 500;
 let lastSweepAt = 0;
 
 function sweepUnlabeledAds(root) {
-  if (!settings.hideUnlabeledAds || !settings.hideSponsored) return;
+  if (!settings.hideSponsored) return;
+  // Two things run through here: the shape rule, which infers, and pages the
+  // user has marked, which is a decision. Only the first answers to the
+  // "Hide ads Facebook doesn't label" switch - that switch exists because
+  // inference can be wrong, and a page you named yourself is not a guess.
+  if (!settings.hideUnlabeledAds && !(settings.adPages || "").trim()) return;
   // Desktop only. The mobile feed is virtualised and its cards are governed by
   // rules measured separately - see MOBILE-VIRTUALISATION.md.
   if (isMobileLayout()) return;
@@ -2251,9 +2260,11 @@ function sweepUnlabeledAds(root) {
     // you have said its posts are ads anyway. It does NOT set aside "does this
     // look like an ad": it still has to send you off Facebook. Marking a page
     // is a strong hint, not a block list.
-    if (isAdPage(card)) {
+    const marked = isAdPage(card);
+    if (marked) {
       if (!hasOutboundLink(card)) return;
     } else {
+      if (!settings.hideUnlabeledAds) return;
       if (hasPermalink(card)) return;
       // A byline that still tells you how old the post is. An ad's does not.
       if (hasResolvingTimestamp(card)) return;
@@ -2263,7 +2274,7 @@ function sweepUnlabeledAds(root) {
     if (!looksLikePost(card)) return;
     unlabeledAdsHidden += 1;
     if (shapeHides.length < MAX_SHAPE_AUDIT) shapeHides.push(describeShapeHide(card));
-    hidePost(card, "sponsored", card, "shape");
+    hidePost(card, "sponsored", card, marked ? "marked" : "shape");
   };
 
   for (const scope of scopes) {
@@ -2533,8 +2544,13 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
   if (changes.hideUnlabeledAds) {
     settings.hideUnlabeledAds = changes.hideUnlabeledAds.newValue;
+    // Restoring by reason cannot tell a shape hide from a labelled ad or a
+    // marked page - all three are "sponsored" - so turning the shape rule off
+    // used to bring back every ad on the page and leave them there. Restore,
+    // then rescan: the ones that were never the shape rule's doing go straight
+    // back.
     if (!settings.hideUnlabeledAds) restoreByReason("sponsored");
-    else shouldRescan = true;
+    shouldRescan = true;
   }
   if (changes.placeholderMode) {
     settings.placeholderMode = changes.placeholderMode.newValue;

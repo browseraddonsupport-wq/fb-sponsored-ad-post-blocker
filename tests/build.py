@@ -276,11 +276,16 @@ POPUP_SMOKE_TEMPLATE = """<style>%s</style>
 // Stubs, not mocks: each returns the shape popup.js expects and nothing more.
 // storage is backed by a real object so the reveal toggle can be seen to
 // persist, which is the behaviour worth checking.
-const store = {};
+// Seeded with every hide option ON, and get() deliberately slow. That is the
+// race that wiped a user's settings in 1.1.82: typing into a text box before
+// the stored values had loaded wrote the form's unticked defaults over all of
+// them. With a fast stub the window never opens and the bug cannot be seen.
+const store = { hideSponsored: true, hideSuggested: true, hideUnfollowed: true,
+                hideAppBanner: true, hideUnlabeledAds: true };
 window.chrome = {
   storage: { local: {
-    get: (d) => Promise.resolve(Object.assign({}, d,
-      Object.fromEntries(Object.entries(store).filter(([k]) => k in (d || {}))))),
+    get: (d) => new Promise((resolve) => setTimeout(() => resolve(Object.assign({}, d,
+      Object.fromEntries(Object.entries(store).filter(([k]) => k in (d || {}))))), 200)),
     set: (o) => { Object.assign(store, o); return Promise.resolve(); }
   }},
   permissions: { contains: () => Promise.resolve(true), request: () => Promise.resolve(true) },

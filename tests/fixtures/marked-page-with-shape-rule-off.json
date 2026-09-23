@@ -1,0 +1,9 @@
+{
+  "expect": "hidden",
+  "why": "A page you marked is a decision, not an inference, so it must not depend on the 'Hide ads Facebook doesn't label' switch - that switch exists because inference can be wrong. 1.1.82 tied the two together, so with the shape rule off, marking a page did nothing at all.",
+  "settings": {
+    "adPages": "https://www.facebook.com/TMZ",
+    "hideUnlabeledAds": false
+  },
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/TMZ\">TMZ</a><span>&middot;</span></div><span>You will not believe what happened at the premiere last night, full story inside.</span><a href=\"https://www.tmz.com/story\"><span>TMZ.COM</span></a></div></div></div>"
+}

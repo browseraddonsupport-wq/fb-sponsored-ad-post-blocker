@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.1.83
+
+A screenshot on 2026-09-23 showed every hide option unticked, `0 posts hidden`,
+an ad sitting in the feed with its "Ad" label in plain view, and the "This
+is an ad" button ticked on but never appearing. Three bugs, all mine.
+
+### Fixed
+
+- **The popup could wipe every setting.** It saved by writing *every* option
+  from the form at once, and the checkboxes start unticked until the real
+  values have loaded. Anything that triggered a save in that window wrote
+  `false` over every hide option. The window had always existed, but 1.1.80 and
+  1.1.82 added text boxes — exactly where you click and type the moment the
+  popup opens.
+
+  Reproduced before fixing: on 1.1.82, typing a page name into the box straight
+  after opening the popup turned every option off. Each control now writes only
+  its own setting, and the controls are disabled until they hold real values,
+  so there is nothing to click in the window where they do not.
+
+  **If your options were switched off without you doing it, this is why** —
+  re-tick them once and they will stay.
+
+- **The "This is an ad" button depended on a setting it had no business
+  depending on.** It required "Hide ads Facebook doesn't label" to be on, so
+  with that unticked the popup said the button was enabled and it never
+  appeared. Marking is most useful precisely when ads are getting through.
+
+- **So did pages you had marked.** A page you named yourself is a decision,
+  not an inference, and the "Hide ads Facebook doesn't label" switch exists
+  because inference can be wrong. Marked pages now answer only to "Hide
+  Sponsored posts".
+
+- **Unticking the shape rule brought back every ad on the page.** It restored
+  everything filed as "sponsored" — label-detected ads and marked pages
+  included, since all three share the reason — and never rescanned to put the
+  others back. It now rescans straight after.
+
+### Verified
+
+38 fixtures, eighteen of them false-positive guards. The popup smoke page now
+reproduces the race rather than hoping around it: stored settings seeded ON, and
+a deliberately slow `storage.get`. With a fast stub that window never opens and
+the bug cannot be seen — which is how it passed every check before.
+
 ## 1.1.82
 
 ### Added

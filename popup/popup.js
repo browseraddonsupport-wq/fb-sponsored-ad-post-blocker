@@ -34,18 +34,37 @@ const copyDiagnosticsEl = document.getElementById("copyDiagnostics");
 
 const FACEBOOK_ORIGINS = { origins: ["*://*.facebook.com/*"] };
 
-function save() {
-  browser.storage.local.set({
-    hideSponsored: hideSponsoredEl.checked,
-    hideSuggested: hideSuggestedEl.checked,
-    hideUnfollowed: hideUnfollowedEl.checked,
-    hideAppBanner: hideAppBannerEl.checked,
-    hideUnlabeledAds: hideUnlabeledAdsEl.checked,
-    keepPages: keepPagesEl.value,
-    adPages: adPagesEl.value,
-    showMarkers: showMarkersEl.checked,
-    placeholderMode: placeholderModeEl.checked,
-  });
+// Each control writes ONLY its own key.
+//
+// This used to be one save() that wrote every setting from the form at once.
+// The checkboxes start unticked until init() has loaded the real values, so
+// anything that fired save() in that window wrote false over every hide option
+// the user had. It was always possible, but 1.1.80 and 1.1.82 added text boxes -
+// exactly where someone clicks and types the moment the popup opens - and a
+// user came back with every option unticked, 0 posts hidden, and an ad sitting
+// in the feed with its label in plain view.
+//
+// Writing one key per change means a control can only ever overwrite itself.
+// Controls are also disabled until they hold real values, so there is nothing
+// to click in the window where they do not.
+const CHECKBOXES = {
+  hideSponsored: hideSponsoredEl,
+  hideSuggested: hideSuggestedEl,
+  hideUnfollowed: hideUnfollowedEl,
+  hideAppBanner: hideAppBannerEl,
+  hideUnlabeledAds: hideUnlabeledAdsEl,
+  showMarkers: showMarkersEl,
+  placeholderMode: placeholderModeEl,
+};
+const TEXTAREAS = { keepPages: keepPagesEl, adPages: adPagesEl };
+const ALL_CONTROLS = [...Object.values(CHECKBOXES), ...Object.values(TEXTAREAS)];
+
+let populated = false;
+ALL_CONTROLS.forEach((el) => { el.disabled = true; });
+
+function saveKey(key, value) {
+  if (!populated) return;
+  browser.storage.local.set({ [key]: value });
 }
 
 // Firefox MV3 treats host permissions as opt-in, so a fresh install runs no
@@ -87,15 +106,10 @@ async function init() {
   await refreshPermissionState();
 
   const settings = await browser.storage.local.get(DEFAULT_SETTINGS);
-  hideSponsoredEl.checked = settings.hideSponsored;
-  hideSuggestedEl.checked = settings.hideSuggested;
-  hideUnfollowedEl.checked = settings.hideUnfollowed;
-  hideAppBannerEl.checked = settings.hideAppBanner;
-  hideUnlabeledAdsEl.checked = settings.hideUnlabeledAds;
-  keepPagesEl.value = settings.keepPages;
-  adPagesEl.value = settings.adPages;
-  showMarkersEl.checked = settings.showMarkers;
-  placeholderModeEl.checked = settings.placeholderMode;
+  for (const [key, el] of Object.entries(CHECKBOXES)) el.checked = !!settings[key];
+  for (const [key, el] of Object.entries(TEXTAREAS)) el.value = settings[key] || "";
+  populated = true;
+  ALL_CONTROLS.forEach((el) => { el.disabled = false; });
 
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const onFacebook = tab && tab.url && /^https?:\/\/([^/]+\.)?facebook\.com\//.test(tab.url);
@@ -262,13 +276,13 @@ copyDiagnosticsEl.addEventListener("click", () => {
   );
 });
 
-[hideSponsoredEl, hideSuggestedEl, hideUnfollowedEl, hideAppBannerEl, hideUnlabeledAdsEl, showMarkersEl, placeholderModeEl].forEach((el) =>
-  el.addEventListener("change", save)
-);
-
+for (const [key, el] of Object.entries(CHECKBOXES)) {
+  el.addEventListener("change", () => saveKey(key, el.checked));
+}
 // "input" rather than "change": a textarea only fires change on blur, and a
 // popup is routinely dismissed without ever blurring the field.
-keepPagesEl.addEventListener("input", save);
-adPagesEl.addEventListener("input", save);
+for (const [key, el] of Object.entries(TEXTAREAS)) {
+  el.addEventListener("input", () => saveKey(key, el.value));
+}
 
 init();
