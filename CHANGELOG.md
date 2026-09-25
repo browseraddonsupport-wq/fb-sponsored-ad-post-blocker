@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.87 — testing build
+## 1.1.87
 
 Cleanup. What the extension hides, and how, is unchanged.
 
