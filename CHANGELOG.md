@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.87 — testing build
+
+Cleanup. What the extension hides, and how, is unchanged.
+
+### Fixed
+
+- **Hidden posts that leave the page are no longer kept in memory.** Every
+  hidden post was remembered so it could be put back, and only putting it back
+  ever forgot it — so a hidden post that Facebook removed from the page stayed
+  in memory, whole, until the tab was closed. Those entries are now dropped
+  every few seconds, with the hide undone on the way out: Facebook reuses page
+  elements, and one that came back still hidden but no longer tracked could
+  never have been restored. The Diagnostics panel shows how many hidden posts
+  are remembered and how many were let go.
+
+### Changed
+
+- **The code's comments explain the code rather than its history.** Dates,
+  version numbers and what a panel showed on a given day belong in this file,
+  and seventy comment blocks retold them. They now say why each part works the
+  way it does, and keep every warning about what breaks if it changes. Two
+  were simply wrong and are corrected. Comments no longer name advertisers or
+  Pages. Only comment lines changed; every other line is identical.
+- A lookup written out five times is one shared helper; the diagnostics use the
+  shared link parser instead of their own copy; three values nothing used are
+  gone.
+- A shortcut the test harness uses to pretend it is on a different page is now
+  ignored entirely in a real install.
+
+### Measured and left alone
+
+On a mock feed of fifty posts and about 22,000 page elements, the twice-a-second
+check takes about 1.4 ms, and the "This is an ad" hover handler 0.004–0.065 ms
+per mouse movement. Neither is worth changing. Earlier, higher figures had timed
+cold runs and the cost of the simulated mouse events, not the extension.
+
+### Verified
+
+49 fixtures pass. The two new behaviours were checked directly: a hidden post
+removed from the page is let go, its hide undone, and hidden again if it comes
+back; the page-address shortcut works in the harness and is ignored in a real
+build.
+
 ## 1.1.86
 
 Two reports on 2026-09-23, from the same kind of ad.
