@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
   // wait to be asked. The checkbox exists to switch it off if it misfires.
   hideUnlabeledAds: true,
   // Pages that must never be hidden by the shape rule, one per line. Added
-  // 1.1.80 because the rule ate a Detroit Lions post: on a page load with no
+  // 1.1.80 because the rule hid a post from a Page the user follows: on a page load with no
   // byline timestamp and no permalink it can recognise, a Page you follow
   // posting a link is indistinguishable from an advertiser posting one. The
   // audit list names the page, so this is the fix for the named page - and it
@@ -379,21 +379,10 @@ function classifyLabel(el) {
   // attribute to getElementById returns null the moment there is more than
   // one, which silently skips every ad whose label is assembled from several
   // nodes. Check each referenced node.
-  const labelledBy = el.getAttribute && el.getAttribute("aria-labelledby");
-  if (labelledBy) {
-    for (const id of labelledBy.split(/\s+/)) {
-      if (!id) continue;
-      // Fall back to the cache when the target is gone: for some ads the span
-      // is removed right after the accessible name is computed, so a live
-      // lookup fails even though the post genuinely was labelled "Sponsored".
-      const target = document.getElementById(id);
-      const text = target
-        ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-        : labelTextById.get(id);
-      if (!text) continue;
-      if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
-      if (settings.hideSuggested && SUGGESTED_TEXTS.has(text)) return "suggested";
-    }
+  for (const { text } of labelRefTexts(el)) {
+    if (!text) continue;
+    if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
+    if (settings.hideSuggested && SUGGESTED_TEXTS.has(text)) return "suggested";
   }
 
   return null;
@@ -836,13 +825,8 @@ function hiddenContainerFor(node) {
   return parent && hiddenPosts.has(parent) ? parent : null;
 }
 
-// Last line of defence for the same bug. Whatever route chose this element, if
-// it is feed-post width then the thing the user wants gone is the whole card,
-// never a block inside it - so walk up until the next step would leave the
-// card. Cheap, and it holds even if a climb elsewhere stops short again.
-// A hide that stops short has now reached the screen four times - Goose Creek,
-// Wayfair, Great Rail Journeys, and on 2026-09-23 Renaissance Roofing, where
-// clicking "This is an ad" took the picture and left the page name, the text,
+// A hide that stops short has now reached the screen four times. The last, on
+// 2026-09-23: clicking "This is an ad" took the picture and left the page name, the text,
 // the sign-up bar and the reactions standing. Each time the climb was patched
 // with another measurement, and each time a different layout got past it:
 // expandToCard stops at a parent holding two tall blocks, which is what a
@@ -899,6 +883,10 @@ function wholePost(node) {
   return includeByline(expandToCard(node));
 }
 
+// Whatever route chose this element, if it is feed-post width then the thing
+// the user wants gone is the whole card, never a block inside it - so walk up
+// until the next step would leave the card. Cheap, and it holds even if a
+// climb elsewhere stops short again.
 function expandToCard(node) {
   if (isMobileLayout()) return node;
   const r = node.getBoundingClientRect();
@@ -964,11 +952,13 @@ const SINGLE_POST_PATH_RE =
   /\/(posts|permalink|videos|reel|photos)\/[^/]|\/(permalink|story|photo)\.php$|^\/photo\/?$|^\/share\/[a-z]\/|^\/marketplace\/item\/|^\/commerce\/listing\//;
 
 // The harness cannot change its own address - it runs from a data: URL - so it
-// sets this instead. A page script cannot reach it: content scripts run in an
-// isolated world, and Facebook's globals are not ours.
+// sets this instead. Honoured only when the manifest reports the harness's
+// stand-in version, so in a real install it does nothing at all - and a page
+// script could not reach it anyway: content scripts run in an isolated world,
+// and Facebook's globals are not ours.
 function currentUrl() {
   const forced = globalThis.__FBSB_TEST_URL__;
-  if (forced) {
+  if (forced && browser.runtime.getManifest().version === "fixture") {
     try {
       return new URL(forced);
     } catch (e) {
@@ -1233,6 +1223,32 @@ document.addEventListener(
 
 // Geometry read on hover goes stale the moment the page moves.
 window.addEventListener("scroll", hideMarker, { passive: true, capture: true });
+
+// Every hidden post is remembered so it can be put back - but only restoring
+// one ever forgot it. If Facebook removes a hidden post from the page, nothing
+// will ever put it back, and keeping the entry kept the whole post (several
+// hundred elements) in memory until the tab closed.
+//
+// The hide is undone on the way out rather than just forgotten. Facebook
+// reuses nodes: one removed now can come back later holding something else,
+// and a node still carrying our hide but no longer in the map could never be
+// restored - the recycling check that normally catches this starts from the
+// map. Undone, it comes back clean and is simply scanned again.
+const PRUNE_INTERVAL_MS = 5000;
+let lastPruneAt = 0;
+let hiddenPostsPruned = 0;
+
+function pruneRemovedPosts(now) {
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS) return;
+  lastPruneAt = now;
+  for (const [container, info] of hiddenPosts) {
+    if (container.isConnected) continue;
+    undoHide(info);
+    if (info.placeholder) info.placeholder.remove();
+    hiddenPosts.delete(container);
+    hiddenPostsPruned += 1;
+  }
+}
 
 function restoreByReason(reason) {
   for (const [container, info] of hiddenPosts) {
@@ -1541,7 +1557,7 @@ const DIAG_CHAIN_DEPTH = 4;
 
 // The LATEST hides, not the first. A problem reported mid-scroll is almost
 // never in the first eight posts of the session, so a panel that kept the
-// first eight could not show it - the Renaissance Roofing half-hide was the
+// first eight could not show it - the reported half-hide was the
 // seventeenth of that page.
 function noteHiddenSample(container, reason, via) {
   if (diagSamples.length >= DIAG_SAMPLE_LIMIT) diagSamples.shift();
@@ -1569,14 +1585,11 @@ function noteHiddenSample(container, reason, via) {
 //
 // Costs nothing until the panel is opened.
 const UNHIDDEN_SAMPLE_LIMIT = 4;
-const UNHIDDEN_MIN_HEIGHT = 200;
-const UNHIDDEN_MIN_WIDTH = 300;
-// A feed card is about 680 wide on this layout and a few hundred tall. Without
-// an upper bound the outermost-wins rule below selects the entire feed column -
-// full page width, thousands of pixels tall - which contains every card, so
-// they all get filtered out as nested inside it. The first survey reported
-// "feed cards on page: 1" for exactly that reason.
-const UNHIDDEN_MAX_WIDTH = 900;
+// A feed card is a few hundred pixels tall. Without an upper bound the
+// outermost-wins rule below selects the entire feed column - thousands of
+// pixels tall - which contains every card, so they all get filtered out as
+// nested inside it. The first survey reported "feed cards on page: 1" for
+// exactly that reason.
 const UNHIDDEN_MAX_HEIGHT = 1800;
 // The feed column's own width, to tell posts from page furniture.
 const FEED_POST_MIN_WIDTH = 600;
@@ -1622,12 +1635,7 @@ function surveyFeedCards() {
     let dangling = false;
     let resolving = false;
     for (const e of el.querySelectorAll("[aria-labelledby]")) {
-      for (const id of (e.getAttribute("aria-labelledby") || "").split(/\s+/)) {
-        if (!id) continue;
-        const target = document.getElementById(id);
-        const text = target
-          ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-          : labelTextById.get(id);
+      for (const { text } of labelRefTexts(e)) {
         if (text) resolving = true;
         else dangling = true;
       }
@@ -1702,12 +1710,7 @@ function sampleUnhiddenPosts() {
     }
     for (const e of el.querySelectorAll("[aria-labelledby]")) {
       if (evidence.length >= 10) break;
-      for (const id of (e.getAttribute("aria-labelledby") || "").split(/\s+/)) {
-        if (!id) continue;
-        const target = document.getElementById(id);
-        const text = target
-          ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-          : labelTextById.get(id);
+      for (const { id, text } of labelRefTexts(e)) {
         if (text && text.length <= 25) {
           evidence.push(`by#${id}->"${text}"`);
         } else if (!text) {
@@ -1727,14 +1730,8 @@ function sampleUnhiddenPosts() {
     // appends are enormous and say nothing.
     for (const a of el.querySelectorAll("a[href]")) {
       if (evidence.length >= 12) break;
-      const href = a.getAttribute("href") || "";
-      if (!href || href === "#") continue;
-      let path = href;
-      try {
-        path = new URL(href, location.origin).pathname;
-      } catch (e) {
-        /* Relative or malformed; the raw value is more useful than nothing. */
-      }
+      const path = linkPath(a);
+      if (!path) continue;
       evidence.push(`href:${path.slice(0, 28)}`);
     }
 
@@ -1755,7 +1752,7 @@ function sampleUnhiddenPosts() {
       posinset: near("[aria-posinset]"),
       pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
-      // Links last in, first out: the NatGeo card reported 7 links and showed
+      // Links last in, first out: one ad card reported 7 links and showed
       // 5, with the cut falling exactly where the answer was. Keep every link
       // and let the aria-labels take what room is left.
       evidence: [...new Set(evidence.filter((e) => e.startsWith("href:")))]
@@ -1796,6 +1793,8 @@ function buildDiagnostics() {
     shapeHides: shapeHides.slice(),
     released: viewersReleased,
     spared: openedPostsSpared,
+    pruned: hiddenPostsPruned,
+    remembered: hiddenPosts.size,
     // Hides that do not contain who posted it: a picture taken out of a post
     // that is otherwise still standing. Should be zero; anything else is this
     // bug again, and the samples below show where.
@@ -2090,8 +2089,7 @@ const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\
 
 // NOT in the list above, deliberately: /stories/<id>/. It looks exactly like a
 // self-link, and a screenshot on 2026-09-11 showed it on a card reading
-// "Sponsored" in plain sight - National Geographic Travel and West Virginia
-// Tourism. Adding it would have permanently immunised that ad and every one
+// "Sponsored" in plain sight. Adding it would have permanently immunised that ad and every one
 // shaped like it. Enumerating permalink shapes is whack-a-mole and this is the
 // mole: only add a shape here on evidence that ads do not use it.
 
@@ -2099,7 +2097,7 @@ const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\
 // has one, because sending you off-site is the entire point; an organic post
 // only has one when it happens to be sharing a link, and that post still links
 // to itself. Added 1.1.71 as a second way in, after a live panel reported an
-// obvious ad - "fabletics.com", "LIMITED TIME OFFER", /l.php - on a card with
+// obvious ad - an advertiser's domain, "LIMITED TIME OFFER", /l.php - on a card with
 // no aria-labelledby anywhere, so the dangling-reference route could not see
 // it. Facebook had simply stopped shipping the reference: the survey read
 // "0 have a DANGLING byline ref, 0 resolve cleanly" across all 16 cards.
@@ -2108,8 +2106,8 @@ const OUTBOUND_PATH = "/l.php";
 // A third way in, for ads that never leave Facebook. A lead-form ad's button
 // ("Sign up", "Apply now", "Get quote") opens a form on Facebook itself, so it
 // has no outbound link, and its "Ad" label is the unreadable kind - so on
-// 2026-09-23 Hill's Pet Nutrition and Renaissance Roofing both sat in the feed
-// with nothing any rule could see. What every ad does carry is a call to
+// 2026-09-23 two lead-form ads sat in the feed with nothing any rule could
+// see. What every ad does carry is a call to
 // action, and these are the words Facebook puts on those buttons.
 //
 // Deliberately absent: "Message" and "Send message" (every marketplace
@@ -2133,8 +2131,8 @@ function isAdCallToAction(el) {
   return AD_CTA_TEXTS.has(text.toLowerCase());
 }
 
-// ...but not every ad uses it. The National Geographic card linked straight
-// out to nationalgeographic.com, so a test for /l.php alone never saw it. What
+// ...but not every ad uses it. One ad linked straight out to the
+// advertiser's own site, so a test for /l.php alone never saw it. What
 // an ad cannot avoid is leaving Facebook: the click has to reach the
 // advertiser. Hosts that are still Facebook do not count.
 const FACEBOOK_HOST_RE = /(^|\.)(facebook\.com|fb\.com|fbcdn\.net)$/i;
@@ -2156,19 +2154,13 @@ function isOutboundLink(a) {
 // This matters more than it sounds. Enumerating permalink shapes was never
 // going to hold: /stories/<id>/ is used by ads AND by real posts, so it can
 // sit in neither list, and Pages whose self-link took that form were being
-// hidden as ads - Detroit Lions, Michigan Democratic Party, Mer in Michigan
-// all appeared in the audit list on that reading. A timestamp is not a shape
+// hidden as ads - three appeared in the audit list on that reading. A timestamp is not a shape
 // Facebook can quietly rename.
 const TIMESTAMP_RE = /(\bago\b|^(just now|yesterday|today)\b|^\d{1,3}\s?(s|m|h|d|w|y)$|^[a-z]{3,9}\s\d{1,2}(\s|,|$)|\bat\b\s\d{1,2}:\d{2})/i;
 
 function hasResolvingTimestamp(card) {
   for (const el of card.querySelectorAll("[aria-labelledby]")) {
-    for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
-      if (!id) continue;
-      const target = document.getElementById(id);
-      const text = target
-        ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-        : labelTextById.get(id);
+    for (const { text } of labelRefTexts(el)) {
       if (text && TIMESTAMP_RE.test(text)) return true;
     }
   }
@@ -2176,13 +2168,11 @@ function hasResolvingTimestamp(card) {
 }
 
 // A post has one subject. The stories tray has one per tile, and it kept
-// getting taken - "Online status indicatorActive -> /meijer" on this reading,
+// getting taken - "Online status indicatorActive -> /<page>" on this reading,
 // "-> /stories/1221077..." on the one before. Counting story links caught the
 // tray only when several tiles happened to be linked at once.
 const MAX_PROFILE_LINKS = 3;
 
-// "/DetroitLions", "DetroitLions", "facebook.com/DetroitLions" all mean the
-// same thing to someone typing it in, so accept all of them.
 // Facebook's own routes. None of them is a page, and treating one as a page
 // name is dangerous rather than merely useless: 1.1.82 recorded "photo" from a
 // click on a post's picture - the first link inside a picture is /photo/ - and
@@ -2201,12 +2191,14 @@ const RESERVED_PATHS = new Set([
 ]);
 
 // A page with no vanity address is /profile.php?id=<number>, and the id is its
-// only identity - 1.1.73's audit showed one as "Vibe.co -> /profile.php".
+// only identity - 1.1.73's audit showed one as "<name> -> /profile.php".
 function profileIdOf(a) {
   const m = /[?&]id=(\d+)/.exec(a.getAttribute("href") || "");
   return m ? m[1] : null;
 }
 
+// "/SomePage", "SomePage", "facebook.com/SomePage" all mean the same thing to
+// someone typing it in, so accept all of them.
 function pageSet(value) {
   const out = new Set();
   for (const raw of (value || "").split(/[\n,]/)) {
@@ -2253,8 +2245,8 @@ function isAdPage(card) {
 // link that names somebody, whether an advertiser's own page or a group.
 function pageNameFor(card) {
   for (const a of card.querySelectorAll("a[href]")) {
-    // stokeshoes.com/versa has the path "/versa", which reads exactly like a
-    // page name. It is somebody else's website.
+    // <shop>.com/<product> has the path "/<product>", which reads exactly
+    // like a page name. It is somebody else's website.
     if (isOutboundLink(a)) continue;
     const path = linkPath(a);
     if (!path || path === "/") continue;
@@ -2305,7 +2297,7 @@ function bylineCount(card) {
     // A story tile counts as a subject even though its path is three segments
     // deep. Counting only single-segment profile links missed the tray
     // entirely: its tiles link to /stories/<id>/<token>, and the two that did
-    // link to a page - /meijer, /DunkinUS - came to two, under the limit. It
+    // link to a page came to two, under the limit. It
     // was hidden five times in one reading.
     const story = /^\/stories\/(\d+)/.exec(path);
     if (story) {
@@ -2317,16 +2309,28 @@ function bylineCount(card) {
   return subjects.size;
 }
 
-function isDanglingRef(el) {
-  for (const id of (el.getAttribute("aria-labelledby") || "").split(/\s+/)) {
+// The text behind each of an element's aria-labelledby references: live if the
+// target is still on the page, otherwise whatever the cache caught before
+// Facebook removed it - for some ads the span is removed right after the
+// accessible name is computed, so a live lookup alone fails even though the
+// post genuinely was labelled. An empty string means the reference dangles:
+// nothing to read either way.
+function labelRefTexts(el) {
+  const out = [];
+  const ids = (el.getAttribute && el.getAttribute("aria-labelledby")) || "";
+  for (const id of ids.split(/\s+/)) {
     if (!id) continue;
     const target = document.getElementById(id);
     const text = target
       ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
-      : labelTextById.get(id);
-    if (!text) return true;
+      : labelTextById.get(id) || "";
+    out.push({ id, text });
   }
-  return false;
+  return out;
+}
+
+function isDanglingRef(el) {
+  return labelRefTexts(el).some((ref) => !ref.text);
 }
 
 function linkPath(a) {
@@ -2355,7 +2359,7 @@ function hasPermalink(card) {
 // taller than the media block its outbound link sits in, so "the parent is much
 // taller, we must have left the card" fired *inside* the card and the rule hid
 // the picture out of an ad while the byline, the text and the reaction counts
-// stayed. Screenshot 2026-09-11, Goose Creek.
+// stayed. Screenshot 2026-09-11.
 //
 // The upper height bound already keeps the climb out of the feed column, which
 // runs to thousands of pixels. What it does not cover is a short feed - few
@@ -2384,8 +2388,7 @@ function holdsSeveralCards(el) {
 // block twenty-odd elements below the card, so a climb starting at an outbound
 // link ran out of steps partway up and kept whatever fitted on the way - the
 // media block. That is the "image gone, text and reactions still there" bug:
-// Goose Creek and Wayfair by screenshot, and Great Rail Journeys straight from
-// the panel, which listed the same card under HIDDEN BY SHAPE *and* under NOT
+// two cases by screenshot, and a third straight from the panel, which listed the same card under HIDDEN BY SHAPE *and* under NOT
 // HIDDEN. The fixtures never caught it because a fixture card is four levels
 // deep and a real one is not.
 const SHAPE_MAX_CLIMB = 30;
@@ -2456,7 +2459,7 @@ function describeShapeHide(card) {
     if (!who && text && text.length <= 40) who = `${text} -> ${path.slice(0, 26)}`;
   }
   // A name alone was not enough to work out WHY a card matched. Asked to
-  // explain one Detroit Lions post, the honest answer was that I had never
+  // explain one wrongly hidden post, the honest answer was that I had never
   // seen the card - only its name. These are the three things the rule
   // actually consults.
   return {
@@ -2569,6 +2572,7 @@ function scanRoot(root) {
     found.forEach(processLabel);
   }
   sweepUnlabeledAds(root);
+  pruneRemovedPosts(startedAt);
 
   const finishedAt = performance.now();
   stats.ms += finishedAt - startedAt;

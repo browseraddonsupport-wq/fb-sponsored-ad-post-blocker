@@ -186,6 +186,7 @@ async function showDiagnostics(tabId) {
     `late-text ${d.lateText == null ? "?" : d.lateText}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
     `viewers released ${d.released == null ? "?" : d.released}  opened posts spared ${d.spared == null ? "?" : d.spared}`,
     `half-hidden posts ${d.partial == null ? "?" : d.partial}${d.partial ? "   <-- a post lost its picture but kept its name" : ""}`,
+    `hidden posts remembered ${d.remembered == null ? "?" : d.remembered}  let go after leaving the page ${d.pruned == null ? "?" : d.pruned}`,
     `climb: ${d.thresholds}`,
     `feed: ${d.feed || "n/a"}`,
   ];
