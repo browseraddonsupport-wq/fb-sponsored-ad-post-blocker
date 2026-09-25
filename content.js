@@ -1,16 +1,15 @@
-// Detects Facebook's "Sponsored"/"Ad", "Suggested for you", and unfollowed
+// Detects Facebook's "Sponsored"/"Ad", "Suggested for you" and unfollowed
 // Page/Group posts, and hides the post they belong to. Facebook exposes no
-// stable class name for any of this, so detection is keyed off two things
-// instead:
-//   1. Label text, cleaned up (see labelVariants below) — "Sponsored"/
-//      "Ad", "Suggested for you", or a "Follow"/"Join" button next to the
-//      poster's name (Facebook's own signal for content from a Page/Group
-//      you don't follow yet).
-//   2. For sponsored content specifically, the post's "..." menu button,
-//      whose accessible name reads "Open menu for <name> sponsored
-//      content" even when no label text is visible on screen.
-// Once a label is found, the post/ad card it belongs to is located via
-// `findPostContainer` and hidden.
+// stable class name for any of this, so detection works from what the page has
+// to show a person:
+//   1. Label text or accessible name, cleaned of Facebook's obfuscation (see
+//      labelVariants) - "Sponsored"/"Ad", "Suggested for you", or a
+//      "Follow"/"Join" button beside the poster's name.
+//   2. Where no label is readable, the shape of an ad: a card that points at a
+//      vanished label, links off Facebook or carries a call to action, and
+//      neither links to itself nor says how old it is (see sweepUnlabeledAds).
+// Once a post is identified, wholePost finds the card it belongs to and
+// hidePost takes it out of the feed.
 
 // Firefox exposes the promise-based WebExtension APIs as `browser`; Chromium
 // only provides `chrome`. Every API this extension uses (storage, action,
@@ -36,12 +35,10 @@ const DEFAULT_SETTINGS = {
   // whose whole purpose is hiding ads should do that out of the box rather than
   // wait to be asked. The checkbox exists to switch it off if it misfires.
   hideUnlabeledAds: true,
-  // Pages that must never be hidden by the shape rule, one per line. Added
-  // 1.1.80 because the rule hid a post from a Page the user follows: on a page load with no
-  // byline timestamp and no permalink it can recognise, a Page you follow
-  // posting a link is indistinguishable from an advertiser posting one. The
-  // audit list names the page, so this is the fix for the named page - and it
-  // holds whatever Facebook changes next.
+  // Pages the shape rule must never hide, one per line. On a page load with no
+  // byline timestamp and no permalink it recognises, a Page you follow posting a
+  // link is indistinguishable from an advertiser posting one; the audit list names
+  // the page, so this fixes it for good.
   keepPages: "",
   // Pages you have marked as advertisers. Not a blanket block: a post from one
   // still has to look like an ad - it must link off Facebook - before it is
@@ -77,31 +74,16 @@ const SPONSORED_ARIA_RE = /sponsored content$/i;
 // absolute form; the query string Facebook appends is irrelevant.
 const ADS_ABOUT_RE = /(^|\.com)\/ads\/about(\/|\?|$)/;
 
-// Facebook renders label text as one <span> per character and scrambles it
-// two ways at once:
-//   - Every character carries an invisible Unicode joiner/combining mark,
-//     so plain textContent never equals "Sponsored"/"Ad" even once
-//     concatenated. Stripping Unicode "Format" (Cf) and "Mark, nonspacing"
-//     (Mn) characters undoes this.
-//   - Real characters are sometimes interspersed with decoy character-spans
-//     (junk text) and/or placed in randomized DOM order, then repositioned
-//     to the correct visual position purely via CSS flexbox `order`. Decoy
-//     leaf spans consistently carry a much longer class list than genuine
-//     ones, so a length threshold filters them out; sorting each level's
-//     children by computed `order` before concatenating restores the real
-//     reading order.
-// The third class of junk is only visible on mobile: weblite draws its icons
-// from a font mapped into the Private Use Area, and packs them into the same
-// span as the label text — an ad's label is literally "Ad\u{F078B}\u{F17E0}",
-// where the two trailing glyphs are the audience and chevron icons. Those are
-// category Co, not Cf or Mn, so stripping only the first two left the text as
-// "Ad<glyph><glyph>", which matches nothing. This is why mobile hid unfollowed
-// posts but never ads: "Follow" happens to sit in a span of its own with no
-// icons, while every ad label shares one with them.
-//
-// Dropping Co cannot create a false positive on its own. The neighbouring
-// organic-post span is "1h\u{F212D}\u{F3196}" (a timestamp plus the same kind
-// of icons), which cleans to "1h" and matches no target.
+// Facebook obfuscates label text in ways all undone by stripping these Unicode
+// categories:
+//   - Cf/Mn: an invisible joiner or combining mark on every character, so
+//     textContent never equals "Sponsored" even once concatenated.
+//   - Co: on mobile, icons drawn from a Private Use Area font share the label's
+//     span - an ad reads "Ad" plus two icon glyphs, which matches nothing until
+//     they are removed.
+// Decoy characters and CSS `order` reshuffling are handled by labelVariants.
+// Dropping Co cannot create a match on its own: the organic equivalent, a
+// timestamp plus the same icons, cleans to "1h".
 const INVISIBLE_CHARS_RE = /[\p{Cf}\p{Mn}\p{Co}]/gu;
 const HONEYPOT_LEAF_CLASS_COUNT = 10;
 // Every genuine character-split label found this session is flat: one
@@ -150,17 +132,12 @@ function collectOrderedLeaves(node, depth = 0) {
   return leaves;
 }
 
-// Facebook pads character-split labels with decoy spans, and which spans are
-// the decoys is signalled by class-list length — but the *direction* of that
-// signal is not stable. In the markup this was originally written against the
-// decoys carried the longer class list; in current markup it is reversed (the
-// real characters of "Sponsored" each carry ~22 classes including a long
-// shared randomized suffix, while the decoys carry ~7). Betting on either
-// direction silently breaks whenever Facebook flips it, and the flip is
-// invisible — detection just stops. So assemble every plausible partition and
-// let the caller match against any of them: the target strings are a handful
-// of short known labels, so a decoy partition matching one by accident is not
-// a realistic risk, and this stops caring which way round the signal is.
+// Character-split labels are padded with decoy spans, signalled by class-list
+// length - but the direction of that signal has flipped before (the real
+// characters have carried both the longer and the shorter lists), and a flip
+// silently stops detection. So assemble every plausible partition and let the
+// caller match any of them: the targets are a handful of short known labels, so
+// a decoy partition matching one by accident is not a realistic risk.
 function labelVariants(el) {
   const leaves = collectOrderedLeaves(el);
   if (leaves.length === 0) return [];
@@ -198,17 +175,12 @@ function reasonForText(text) {
 // short target strings.
 const MAX_SCRAMBLED_LABEL_CHILDREN = 120;
 
-// labelVariants resolves computed style once per child, and getComputedStyle
-// forces a style flush — so it must only ever run on elements that really are
-// character-split labels. Gating it on "has at least two children" was far too
-// loose: on Facebook that matches thousands of ordinary wrappers, and paying
-// up to MAX_SCRAMBLED_LABEL_CHILDREN style resolutions on each one blocks the
-// main thread hard enough to stop the feed rendering at all.
-//
-// A genuine scrambled label is unmistakable and cheap to recognise: a row of
-// leaf spans each holding exactly one visible character. Reading text off a
-// leaf is O(1) and no style is resolved, so this rejects almost everything
-// before any expensive work starts.
+// labelVariants resolves computed style per child, which forces a style flush,
+// so it must only run on genuine character-split labels. "Has two or more
+// children" matches thousands of ordinary wrappers and blocked the main thread
+// badly enough to stop the feed rendering. A real scrambled label is cheap to
+// recognise without resolving any style: a row of leaf spans each holding
+// exactly one visible character.
 const MIN_SCRAMBLED_LABEL_CHILDREN = 4;
 
 function isCharacterSplit(el) {
@@ -239,17 +211,12 @@ function ownText(el) {
 }
 
 function classifyLabel(el) {
-  // Only two element shapes can carry a text label, and reading either is
-  // cheap:
-  //   - a leaf, where .textContent is just its own text, and
-  //   - a character-split label, which isCharacterSplit recognises without
-  //     resolving any style.
-  // Everything else is a wrapper. Reading .textContent on a wrapper walks its
-  // whole subtree, and since scanRoot visits every span and anchor on the
-  // page, doing so at each nesting level re-walks the same text over and over
-  // — quadratic in subtree size, and enough on a real feed to stall Facebook's
-  // rendering outright. Skipping wrappers costs nothing: the leaf that
-  // actually holds the text gets visited on its own.
+  // Only two shapes can carry a text label, and both are cheap to read: a leaf,
+  // and a character-split label (recognised without resolving style). Reading
+  // textContent on a wrapper walks its whole subtree, and since the scan visits
+  // every span and anchor, doing so at every nesting level is quadratic - enough
+  // to stall Facebook's rendering. Wrappers are skipped; the leaf holding the text
+  // is visited on its own.
   if (el.children.length === 0) {
     const raw = el.textContent;
     if (raw && raw.length <= 300) {
@@ -257,17 +224,11 @@ function classifyLabel(el) {
       if (reason) return reason;
     }
   } else if (ownText(el)) {
-    // An element can hold the label text AND an element child - "Ad" sitting
-    // beside a globe icon, which is how several feed ads are built. It is not a
-    // leaf, so the branch above skips it; it is not character-split either, so
-    // it used to fall through unread and the ad stayed visible. Observed live
-    // on 2026-09-11: an ad card whose panel entry had a span for the "·"
-    // separator, no "Ad" leaf anywhere, and no use/aria-labelledby route to one.
-    //
-    // Reading only this element's OWN text nodes is what keeps the leaf rule's
-    // guarantee: it never descends, so the quadratic re-walk of the same
-    // subtree at every nesting level cannot happen. One pass over direct
-    // children, no recursion.
+    // An element can hold the label AND an element child - "Ad" beside a globe
+    // icon, which is how several feed ads are built. It is neither a leaf nor
+    // character-split, so read only its OWN text nodes: one pass over direct
+    // children, never descending, which keeps the leaf rule's guarantee against
+    // re-walking the same subtree.
     const reason = reasonForText(ownText(el).replace(INVISIBLE_CHARS_RE, "").trim());
     if (reason) return reason;
     if (isCharacterSplit(el)) {
@@ -283,31 +244,17 @@ function classifyLabel(el) {
     }
   }
 
-  // NOTE: do not be tempted by data-ad-rendering-role. Its name and its
-  // values ("profile_name", "story_message", "like_button", …) make it look
-  // like a reliable ad marker, and it is present on every part of a sponsored
-  // post. It is also present on ordinary posts from pages you follow —
-  // Facebook renders both through the same story template — so keying off it
-  // classifies the entire feed as sponsored and hides everything. Verified the
-  // hard way; the attribute name is simply misleading.
-  //
-  // RE-VERIFIED 2026-09-11, after ads appeared whose label is not in the DOM at
-  // all and this looked like the only way left. An ordinary local buy-and-sell
-  // group post carried
-  // data-ad-rendering-role=profile_name,story_message,meta,title AND
-  // data-ad-preview. Still not an ad marker. data-ad-preview and
-  // data-ad-comet-preview are no better; the same post had those too.
+  // NOTE: do not key off data-ad-rendering-role, data-ad-preview or
+  // data-ad-comet-preview. They look like ad markers and appear on every part of a
+  // sponsored post - and also on ordinary posts, because Facebook renders both
+  // through the same story template. Keying off them hides the entire feed.
+  // Re-verified against an ordinary group post carrying all three.
 
-  // Facebook now draws the byline label as vector art: an <svg><use> pointing
-  // at a sprite <symbol> elsewhere in the document. There is no text in the
-  // post at all — which is why every text-based path above finds nothing, and
-  // why the word "Sponsored" is absent from the post's entire textContent.
-  //
-  // The symbol itself does hold real text, because a screen reader has to be
-  // able to announce it: #SvgT31 reads "Sponsored", while an organic post's
-  // byline symbol reads "17 hours ago". So follow the reference and match that
-  // — same string sets as everywhere else, no new heuristic. The cache covers
-  // symbols Facebook has already discarded.
+  // Some byline labels are vector art: an <svg><use> pointing at a sprite
+  // <symbol> elsewhere in the document, so the post itself contains no text. The
+  // symbol does hold real text for screen readers - "Sponsored" for an ad, a
+  // timestamp for an organic post - so follow the reference and match that. The
+  // cache covers symbols Facebook has already discarded.
   if (el.tagName === "use") {
     const ref = el.getAttribute("xlink:href") || el.getAttribute("href");
     if (ref && ref.startsWith("#")) {
@@ -323,24 +270,14 @@ function classifyLabel(el) {
     }
   }
 
-  // Facebook's byline links the "Ad" label to /ads/about/ - the "Why am I
-  // seeing this ad?" explainer. Structural, not textual, which matters because
-  // on current markup there is no text to find: the byline is
+  // The byline links the "Ad" label to /ads/about/ - the "Why am I seeing this
+  // ad?" explainer. That is structural, not textual, which matters because some
+  // ads have no text to find: the byline is an anchor wrapping an empty span
+  // whose accessible name comes from a node Facebook deletes immediately.
   //
-  //   <a href="/ads/about/?...">
-  //     <span><span aria-labelledby="_r_7g_"><span></span></span></span>
-  //   </a>
-  //
-  // The innermost span is empty. The word "Ad" exists only as an accessible
-  // name computed from a span Facebook deletes immediately, which is why five
-  // separate text routes all came back with nothing while the card plainly
-  // read "Ad · " on screen.
-  //
-  // Unlike data-ad-rendering-role (see the warning above), this link is not on
-  // ordinary posts: an organic byline links to the post's own permalink.
-  //
-  // `a` is already in LABEL_SELECTOR, so this costs one attribute read on
-  // elements the scan was visiting anyway.
+  // Unlike data-ad-rendering-role, this link is not on ordinary posts: an organic
+  // byline links to the post's own permalink. `a` is already in LABEL_SELECTOR, so
+  // this costs one attribute read.
   if (settings.hideSponsored && el.tagName === "A") {
     const href = el.getAttribute("href") || "";
     if (ADS_ABOUT_RE.test(href)) return "sponsored";
@@ -361,24 +298,15 @@ function classifyLabel(el) {
     }
   }
 
-  // Chromium gets a different obfuscation from Firefox: feed ads carry no
-  // "Sponsored" text at all, neither plain nor character-split. The word lives
-  // only in a portal <span id="_r_…_"> parked a few levels below <body>, which
-  // the post references by aria-labelledby.
-  //
-  // We already see those portal spans and correctly refuse to hide anything
-  // from them — they sit outside every post, so they can never be anchored.
-  // The referencing element, though, is inside the post and anchors normally,
-  // so resolve the relationship from this end instead.
+  // Some ads carry no "Sponsored" text in the post at all: the word lives in a
+  // portal <span id="_r_..._"> parked outside every post, which the post
+  // references by aria-labelledby. The portal span can never be anchored, but the
+  // referencing element is inside the post, so resolve the relationship from this
+  // end. Every referenced id is checked: the attribute is a list, and the
+  // accessible name is their concatenation.
   //
   // Deliberately limited to the ad labels: "Follow"/"Join" appear as accessible
-  // names all over the interface for reasons that have nothing to do with who
-  // posted something, and matching those here would hide unrelated content.
-  // aria-labelledby holds a space-separated *list* of ids, not one id — the
-  // accessible name is the concatenation of all of them. Passing the raw
-  // attribute to getElementById returns null the moment there is more than
-  // one, which silently skips every ad whose label is assembled from several
-  // nodes. Check each referenced node.
+  // names all over the interface for reasons unrelated to who posted something.
   for (const { text } of labelRefTexts(el)) {
     if (!text) continue;
     if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
@@ -401,36 +329,22 @@ function climbToChildOf(label, landmark) {
   return node.parentElement === landmark ? node : null;
 }
 
-// A "Follow"/"Join" button only means "this post is from a Page or Group you
-// don't follow" when it sits beside the post's *own* author. Posts frequently
-// embed a shared post, and the embedded copy carries its own author header
-// with its own Follow button — so a group post you're a member of, quoting
-// someone you don't follow, would otherwise be hidden entirely on the strength
-// of the quoted author's button.
+// A "Follow"/"Join" button only means "a Page or Group you don't follow" when it
+// sits beside the post's OWN author. Posts often embed a shared post with its
+// own author header and Follow button, so a group post quoting someone you don't
+// follow would otherwise be hidden on the strength of the quoted author's button.
 //
-// The post's own author header is the first heading in the container;
-// anything quoted inside it comes later. Requiring the button to live in that
-// first heading errs toward leaving posts visible, which is the right way to
-// be wrong: a missed unfollowed post is an annoyance, a wrongly hidden group
-// post is content you never learn you lost.
-//
-// Not every card has a heading. Facebook renders plenty of feed posts - reels
-// and video cards especially - with the author's name in a plain span, and
-// requiring a heading meant those could never qualify, so an obvious "Follow"
-// button beside the poster's name anchored nowhere. For those, fall back to
-// the same rule the mobile climb uses: the card's own author header is its
-// first child subtree, and anything quoted inside it comes later.
+// The post's own header is its first heading or - where there is none, as on
+// reels and video cards - its first child subtree; anything quoted comes later.
+// Erring toward leaving posts visible is the right way to be wrong: a missed
+// unfollowed post is an annoyance, a wrongly hidden one is content you never
+// learn you lost.
 function isAuthorLevelLabel(label, container) {
-  // The header row, which holds the name and the button side by side. Testing
-  // the heading alone was too strict in both directions: on a real card the
-  // Follow button is a *sibling* of the <h2>, not inside it, and on a reel
-  // there is no heading at all.
-  //
-  // Descend through single-child wrappers before taking the first child.
-  // Without that step the rule is worthless whenever the container is a
-  // landmark wrapping one div wrapping the card: "the first child" is then the
-  // whole post, so a quoted page's Follow button sits inside it and takes the
-  // post out. The fixture guarding that case caught it before it shipped.
+  // The header row holds the name and the button side by side: on a real card the
+  // Follow button is a sibling of the heading, not inside it. Descend through
+  // single-child wrappers first, or "the first child" of a landmark wrapping the
+  // card is the whole post - and a quoted page's Follow button inside it would
+  // take the post out.
   let body = container;
   while (body.children.length === 1) body = body.children[0];
   const first = body.firstElementChild;
@@ -439,19 +353,15 @@ function isAuthorLevelLabel(label, container) {
   return !!firstHeading && label.closest("h1, h2, h3, h4, h5, h6") === firstHeading;
 }
 
-// Facebook's mobile web renderer ("weblite" — it tags <body> with
-// html-renderer) is a different app, not a narrow desktop. It exposes no ARIA
-// landmarks whatsoever: no role="article", no aria-posinset, no data-pagelet,
-// no role="complementary", and the author header is a plain <div> rather than
-// a heading. Every strategy in findPostContainer keys off one of those, so on
-// mobile all of them return null and nothing is ever hidden — detection works
-// fine there, resolution is what fails.
+// Facebook's mobile web renderer ("weblite", which tags <body> with
+// html-renderer) is a different app, not a narrow desktop: no ARIA landmarks at
+// all, and the author header is a plain <div>. Every strategy in
+// findPostContainer keys off a landmark, so mobile needs its own climb.
 //
-// Keying off the body class rather than "no landmarks found" is deliberate:
-// the latter needs a document-wide query on every unresolved label, and a
-// desktop page that hasn't painted its feed yet would answer it wrongly. The
-// tradeoff is that if Facebook renames this class, mobile support stops
-// silently — the same failure mode as everything else in this file.
+// Keyed off the body class rather than "no landmarks found", which would need a
+// document-wide query per label and answers wrongly on a desktop page that has
+// not painted its feed yet. If Facebook renames this class, mobile support stops
+// silently - which is what the breakage warning below exists to catch.
 const MOBILE_BODY_CLASS = "html-renderer";
 
 function isMobileLayout() {
@@ -459,10 +369,9 @@ function isMobileLayout() {
 }
 
 // What that layout does have is a flat feed: one container whose direct
-// children are the posts. Observed on a live feed, the container held 71
-// children and each post sat 7 levels above its "Follow" button, with every
-// intermediate wrapper holding 1-4 children. So the post is the last ancestor
-// before the first ancestor that has many children.
+// children are the posts (measured: 71 children, each post 7 levels above its
+// "Follow" button, every wrapper in between holding 1-4 children). So the post
+// is the last ancestor before the first one that has many children.
 const MOBILE_FEED_MIN_CHILDREN = 10;
 const MOBILE_MAX_CLIMB = 12;
 // Feed posts span the feed's full width (measured: 1339-1345 of 1345). A
@@ -473,22 +382,13 @@ const MOBILE_MIN_WIDTH_RATIO = 0.6;
 
 // --- Catching posts as Facebook reveals them -------------------------------
 //
-// Facebook renders a window of the feed and swaps batches in as you scroll.
-// That swap is not a childList mutation — it flips `display` on children that
-// already exist — so the MutationObserver never sees it, and an ad revealed
-// this way would go unfiltered for as long as you kept scrolling. That is why
-// mobile filtered almost nothing: the rendered window is a small fraction of
-// the feed, and everything outside it arrived unexamined.
-//
-// 1.1.44 tried to pre-empt the reveal by hiding posts while they were still
-// virtualised out. That stalled Facebook's swap-in loop, which works from
-// rendered content, and blanked the feed below the first few posts.
-//
-// So wait for the reveal instead of racing it. IntersectionObserver is the
-// cheap way to notice: no polling, no attribute storms, and it stays silent
-// while nothing moves — unlike a scroll handler, which is the shape of the
-// 1.1.35 freeze. The margin means a post is scanned while still below the
-// fold, so it is hidden before it is seen rather than flashing into view.
+// Facebook renders a window of the feed and swaps batches in as you scroll by
+// flipping `display` on children that already exist - not a childList mutation,
+// so the MutationObserver never sees it. Hiding posts while they are still
+// virtualised out stalls Facebook's swap-in loop and blanks the feed (see
+// MOBILE-VIRTUALISATION.md), so wait for the reveal instead of racing it.
+// IntersectionObserver notices without polling; the margin means a post is
+// scanned while still below the fold, so it is hidden before it is seen.
 const REVEAL_MARGIN = "800px";
 
 let mobileFeed = null;
@@ -550,20 +450,12 @@ function findMobilePostContainer(label, reason) {
     if (!parent || parent === document.body) return null;
 
     if (parent.children.length >= MOBILE_FEED_MIN_CHILDREN) {
-      // Facebook virtualises this feed: most children are display:none at any
-      // moment, behind a filler reserving their scroll height (measured: 42 of
-      // 64 children hidden, filler 13,226px). Those report offsetWidth 0, so
-      // this rule rejects them.
-      //
-      // That rejection is deliberate, and 1.1.44 was wrong to remove it.
-      // Resolving virtualised-out posts let us hide them before Facebook had
-      // rendered them, and its swap-in loop — which works from rendered
-      // content — stalled: a few posts would load and everything below stayed
-      // blank. Whatever this rule costs, it is not worth breaking the feed.
-      //
-      // Ads that are off-screen now are caught when Facebook reveals them, by
-      // the reveal observer below, at which point they have boxes and pass
-      // here normally.
+      // Most children of this feed are display:none at any moment, behind a filler
+      // reserving their scroll height, and report offsetWidth 0 - so this rejects
+      // them, deliberately. Resolving virtualised-out posts hides them before
+      // Facebook has rendered them, and its swap-in loop stalls: a few posts load and
+      // everything below stays blank. They are caught when revealed instead, by the
+      // reveal observer, once they have boxes.
       if (node.offsetWidth < parent.clientWidth * MOBILE_MIN_WIDTH_RATIO) {
         // A candidate with no box at all was rejected because Facebook has not
         // rendered it yet — an expected, temporary miss that the reveal
@@ -615,10 +507,8 @@ function climbToCard(label) {
     const width = node.getBoundingClientRect().width;
     const parentWidth = parent.getBoundingClientRect().width;
     // The width-jump rule only means anything once the climb has reached card
-    // width. Applied from the start it fires on the very first step - a label
-    // is a narrow inline span, and its parent is the whole card - so the climb
-    // ends immediately having found nothing. The fixture caught that before it
-    // shipped.
+    // width. From the start it fires on the first step - a label is a narrow inline
+    // span inside the whole card - and the climb ends having found nothing.
     if (width >= DESKTOP_CARD_MIN_WIDTH) {
       best = node;
       if (parentWidth > width * DESKTOP_CARD_WIDTH_JUMP) break;
@@ -652,41 +542,24 @@ function findPostContainer(label, reason) {
     }
   }
 
-  // role="complementary" reliably means "the feed's right-column ad
-  // sidebar" for sponsored/suggested content, which is what this fallback
-  // was built and confirmed against. But Facebook also marks a Reel
-  // page's entire comments+info panel as role="complementary" (a
-  // legitimate "supplementary content" landmark, just reused for
-  // something else there), and a stray "Follow"/"Join" button anywhere
-  // inside it would otherwise take out the whole panel. Since hiding a
-  // sidebar Follow button was never really the intent of "unfollowed"
-  // detection anyway (that's about feed posts specifically), skip this
-  // fallback for that reason rather than trying to further disambiguate
-  // which role="complementary" region is actually the ad sidebar.
+  // role="complementary" reliably means the right-hand ad rail for sponsored and
+  // suggested content. But Facebook also marks a reel page's whole comments panel
+  // as complementary, and a stray "Follow"/"Join" anywhere inside it would take
+  // out the panel. Hiding a sidebar Follow button was never the intent of
+  // "unfollowed", which is about feed posts, so this fallback skips that reason.
   if (reason !== "unfollowed") {
     const rail = label.closest('[role="complementary"]');
     if (rail) return climbToChildOf(label, rail);
   }
 
-  // Last resort: no landmark anywhere above the label. Observed live on
-  // 2026-09-11 - an ad reported article=-, pagelet=- and its
-  // aria-posinset as a *descendant* rather than an ancestor, so every strategy
-  // above returned null. The panel showed it exactly: matched 47, anchored 46.
-  // Detection was fine; there was simply nothing to hold on to.
+  // Last resort: no landmark anywhere above the label. Some cards carry no
+  // role="article" and no pagelet, and their aria-posinset only as a descendant,
+  // so every strategy above returns null. Climb to the outermost ancestor that is
+  // still card-shaped and stop at the width jump into the feed column.
   //
-  // Climb to the outermost ancestor that is still card-shaped and stop at the
-  // width jump into the feed column. A feed card and its wrappers share one
-  // width (680 on this layout) while the column is far wider, so that jump is
-  // the boundary.
-  //
-  // 1.1.70 and earlier refused this route for "unfollowed" outright, on the
-  // grounds that a stray Follow button inside a quoted post would take out the
-  // whole card. The check that was missing is the one the mobile climb has
-  // always applied: require the button to sit at the card's own author level.
-  // Observed unhidden 2026-09-11 - a reel from a Page, with a Follow button
-  // beside the poster's name, reporting article=- pagelet=- and its
-  // aria-posinset as a descendant, so every landmark route above returned null
-  // and the one remaining route declined to look.
+  // For "unfollowed" the button must sit at the card's own author level - the rule
+  // the mobile climb applies - or a Follow button inside a quoted post would take
+  // out the whole card.
   if (reason === "unfollowed" && label.closest('[role="complementary"]')) return null;
   const card = climbToCard(label);
   if (card) {
@@ -751,38 +624,19 @@ function isPostReason(reason) {
   return reason !== "appbanner";
 }
 
-// How a post is taken out of the feed, and it differs by layout for a reason
-// measured on a real device.
+// How a post is taken out of the feed differs by layout, for a measured reason.
 //
 // Desktop removes the post outright: display:none, no space left behind.
 //
-// Mobile cannot. Facebook virtualises that feed and decides what to page in
-// next by measuring rendered content, so removing a post's height corrupts the
-// figure it works from. Hide enough and the loop loses its footing and stops
-// paging entirely — a few posts load and everything below stays blank. Proven
-// by control test on stock Firefox for Android: extension off, the feed keeps
-// loading indefinitely; extension on, it stalls within about 15 seconds. It
-// also explains why unchecking "unfollowed", which hides the largest share of
-// any feed, was what made the blackout go away.
-//
-// Preserving the height was not enough. Measured by hand on a live feed, with
-// the extension inert: setting `data-fbsb-hidden` on six feed children and
-// nothing else — no styling, nothing visibly changed — stopped the pager dead
-// for the full 15s window. Facebook objects to *any* attribute write on a
-// direct child of its feed, presumably because its own observers treat that
-// node as having been changed underneath it.
-//
-// So the post element is untouchable: no style, no attribute. Both go on its
-// children instead, which the same experiment showed is safe — hiding the
-// inner content of six posts left the feed paging normally (+10, then +24 on
-// the following ticks).
-//
-// visibility rather than display, still, so the children keep their boxes and
-// the post keeps its height. The cost is honest and visible: a hidden ad
-// leaves blank space where it was, rather than vanishing. That is the "gap"
-// reported throughout testing — accepted deliberately, because the alternative
-// is a feed that stops loading, and blank space you can scroll past beats
-// content you cannot reach.
+// Mobile cannot. Facebook virtualises that feed and decides what to page in next
+// by measuring rendered content, and it reacts to ANY attribute write on a
+// direct child of the feed: in a control test an unstyled data attribute on six
+// posts stopped the pager dead, while hiding the same posts' inner content left
+// it paging normally. So the post element is untouchable - no style, no
+// attribute. Both go on its children, with visibility rather than display so
+// the post keeps its height. The cost is a blank gap where the ad was, accepted
+// deliberately: blank space you can scroll past beats a feed that stops loading.
+// See MOBILE-VIRTUALISATION.md.
 function applyHide(container) {
   if (!isMobileLayout()) {
     container.style.setProperty("display", "none", "important");
@@ -825,21 +679,16 @@ function hiddenContainerFor(node) {
   return parent && hiddenPosts.has(parent) ? parent : null;
 }
 
-// A hide that stops short has now reached the screen four times. The last, on
-// 2026-09-23: clicking "This is an ad" took the picture and left the page name, the text,
-// the sign-up bar and the reactions standing. Each time the climb was patched
-// with another measurement, and each time a different layout got past it:
-// expandToCard stops at a parent holding two tall blocks, which is what a
-// container of posts looks like - and also what one post with a tall picture
-// and a tall block of text looks like.
+// A hide is not finished until it contains the line saying who posted it.
+// Geometry alone kept stopping short: expandToCard stops at a parent holding two
+// tall blocks, which is what a container of posts looks like - and also what one
+// post with a tall picture and a tall block of text looks like - leaving the
+// picture hidden and the rest of the post standing.
 //
-// So anchor on something every post has instead: the line saying who posted
-// it. Whatever the geometry says, a hide that does not contain the poster's
-// name has not reached the post yet. The climb keeps every guard that keeps it
-// inside ONE post - it never crosses into the page column, a viewer, above a
-// hidden neighbour, or into a container holding another post - and if it
-// cannot find a byline inside those bounds it leaves the hide exactly as it
-// was. It can only ever widen a hide within a post, never into the feed.
+// The climb keeps every guard that keeps it inside ONE post - never into the
+// page column, a viewer, above a hidden neighbour, or into a container holding
+// another post - and if no byline is found within those bounds it leaves the
+// hide as it was. It can widen a hide within a post, never into the feed.
 function includesByline(node) {
   return pageNameFor(node) !== null;
 }
@@ -927,27 +776,17 @@ function hasHiddenSibling(parent, self) {
   return false;
 }
 
-// A post you opened on purpose is not feed, and nothing here should touch it.
+// A post opened on purpose is not feed, and no rule here should touch it. Two
+// ways a post is opened deliberately:
 //
-// Reported 2026-09-23: a friend shared a post from a buy-and-sell group in
-// Messenger, and opening it showed nothing - the post carries a "Join" button,
-// so the unfollowed rule hid it inside the very viewer the user had just
-// clicked into. The only way to read it was to switch that rule off. Every
-// rule here exists to curate a feed nobody chose; none of them should get a
-// say over a post somebody did.
+//   - It is inside a viewer (role="dialog"): a post clicked into, a photo, a
+//     reel, a link followed from chat.
+//   - The page IS that post - a permalink, loaded directly or from a link. The
+//     right-hand rail is still filtered there; it is page furniture.
 //
-// Two ways a post is opened deliberately:
-//
-//   - It is inside a viewer (role="dialog"): a post clicked into from the
-//     feed, a photo, a reel, a link followed from chat.
-//   - The page IS that post - a permalink, reached from outside Facebook or
-//     loaded directly. The right-hand rail is still fair game there; it is
-//     page furniture, not what the user came to see.
-//
-// Checked here, in hidePost, because every rule ends up here. The dialog check
-// that used to live in individual rules was only ever in some of them: the
-// label route's article/pagelet branch had none, which is the gap this post
-// fell through.
+// Checked in hidePost because every rule ends up there. A group post shared in
+// chat carries a "Join" button, and the unfollowed rule used to hide it inside
+// the very viewer that had been opened for it.
 const SINGLE_POST_PATH_RE =
   /\/(posts|permalink|videos|reel|photos)\/[^/]|\/(permalink|story|photo)\.php$|^\/photo\/?$|^\/share\/[a-z]\/|^\/marketplace\/item\/|^\/commerce\/listing\//;
 
@@ -1053,16 +892,11 @@ function restorePost(container) {
   if (isPostReason(info.reason)) reportCount(-1);
 }
 
-// Clicking a photo, or a post's comment count, opens a viewer - and Facebook
-// builds it by reusing nodes that are already on the page, sometimes inside a
-// card we have hidden. The viewer then renders correctly into an element with
-// display:none, and the user clicks through to a blank screen. Reported
-// 2026-09-23: "viewing comments on posts / pictures once you click into them
-// you are unable to view it."
-//
-// Whatever we got wrong to end up here, a viewer being inside a hidden
-// container always means the hide is now doing harm, so give it back
-// immediately rather than waiting to work out why.
+// Facebook builds its photo and comment viewers by reusing nodes already on the
+// page, sometimes inside a card we have hidden - the viewer then renders into
+// display:none and the user clicks through to a blank screen. Whatever earned
+// the hide, a viewer inside it means the hide is now doing harm, so give it back
+// immediately rather than working out why.
 let viewersReleased = 0;
 
 // A viewer anywhere in this card, above or below the given element, up to the
@@ -1177,10 +1011,8 @@ function positionMarkerOver(card, media) {
   el.style.left = r.left + 8 + "px";
 }
 
-// Its own setting and nothing else. 1.1.82 also required the shape rule to be
-// on, so with that unticked the popup said the button was enabled and no
-// button ever appeared - and marking is most useful precisely when ads are
-// getting through.
+// Its own setting and nothing else: marking is most useful precisely when ads
+// are getting through, so it must not depend on the rules that hide them.
 function markerEnabled() {
   return settings.showMarkers && !isMobileLayout();
 }
@@ -1195,15 +1027,10 @@ document.addEventListener(
       hideMarker();
       return;
     }
-    // Over the picture and nowhere else. The button used to attach to
-    // whichever card-shaped block the pointer was in, so it turned up over the
-    // page name and the post text too, and a click there recorded the wrong
-    // thing. Now the post is resolved to the whole card, and the button shows
-    // only while the pointer is inside that card's main picture or video.
-    //
-    // Measured by position rather than by what the pointer is on: Facebook
-    // lays transparent layers over its images, so the element under the
-    // pointer is rarely the <img> itself.
+    // Over the picture and nowhere else, and the click takes the whole post.
+    // Measured by position rather than by what the pointer is on: Facebook lays
+    // transparent layers over its images, so the element under the pointer is
+    // rarely the <img> itself.
     const card = wholePost(inner);
     const media = mainMediaOf(card);
     if (!media) {
@@ -1224,16 +1051,12 @@ document.addEventListener(
 // Geometry read on hover goes stale the moment the page moves.
 window.addEventListener("scroll", hideMarker, { passive: true, capture: true });
 
-// Every hidden post is remembered so it can be put back - but only restoring
-// one ever forgot it. If Facebook removes a hidden post from the page, nothing
-// will ever put it back, and keeping the entry kept the whole post (several
-// hundred elements) in memory until the tab closed.
-//
-// The hide is undone on the way out rather than just forgotten. Facebook
-// reuses nodes: one removed now can come back later holding something else,
-// and a node still carrying our hide but no longer in the map could never be
-// restored - the recycling check that normally catches this starts from the
-// map. Undone, it comes back clean and is simply scanned again.
+// Every hidden post is remembered so it can be put back, and only restoring one
+// used to forget it - so a hidden post Facebook removed from the page stayed in
+// memory, whole, until the tab closed. Entries for posts no longer on the page
+// are dropped, with the hide undone on the way out: Facebook reuses nodes, and
+// one that came back still carrying our hide but missing from the map could
+// never be restored. Undone, it comes back clean and is scanned again.
 const PRUNE_INTERVAL_MS = 5000;
 let lastPruneAt = 0;
 let hiddenPostsPruned = 0;
@@ -1288,16 +1111,12 @@ const pendingLabels = new Map(); // label -> first-seen timestamp
 // decoy, which otherwise adds up fast since new ones keep appearing while
 // scrolling.
 const SHALLOW_DEPTH_LIMIT = 10;
-// Mobile needs its own number, because the threshold is only meaningful
+// Mobile needs its own number, because the threshold only means anything
 // relative to how deep the page nests. Weblite's whole document is about 11
-// levels: a feed ad's "Ad" label measures exactly 10 steps from <body>, so the
-// desktop limit classified every real ad as a decoy and discarded it before
-// resolution was attempted — detection and container resolution both worked,
-// and this threw the label away in between. Unfollowed posts escaped only
-// because their "Follow" button carries two extra wrappers, putting it at 11.
-//
-// 4 keeps the original intent (anything parked directly under <body> is not a
-// post) while leaving room for a tree this shallow.
+// levels and a feed ad's label sits 10 steps below <body>, so the desktop limit
+// discarded every real ad as a decoy. 4 keeps the intent - anything parked
+// directly under <body> is not a post - while leaving room for a tree this
+// shallow.
 const MOBILE_SHALLOW_DEPTH_LIMIT = 4;
 
 function isImplausiblyShallow(el) {
@@ -1318,32 +1137,21 @@ function tryHideFromLabel(label, reason) {
   return true;
 }
 
-// Facebook parks accessibility-label targets — the <span id="_r_…_"> that an
-// ad's aria-labelledby points at — outside the post they describe. They hold
-// the literal word "Sponsored", so they classify, but they can never resolve
-// to a post themselves.
-//
-// The element that *references* them is inside the post and anchors fine.
-// classifyLabel already resolves that relationship, but only if the span
-// existed when the post was scanned — and Facebook creates the post first and
-// the span moments later. At scan time getElementById returns null,
-// classifyLabel finds nothing, and an element that classifies as nothing never
-// enters the retry queue, so nothing looks at it again and the ad stays
-// visible forever.
-//
-// The span's own insertion is a mutation we already observe, so use it as the
-// trigger and walk forward to whoever references it.
-//
-// `~=` matches one entry of a space-separated list, which is what
-// aria-labelledby is; `=` would only match labels built from a single id.
+// Accessibility-label targets - the <span id="_r_..._"> an ad's aria-labelledby
+// points at - are parked outside the post they describe. They classify, but can
+// never resolve to a post themselves. classifyLabel resolves the relationship
+// from the referencing element, but only if the span already existed when the
+// post was scanned, and Facebook often creates the post first and the span
+// moments later, after which nothing looks at the post again. The span's own
+// insertion is a mutation we observe, so use it to walk forward to whoever
+// references it. `~=` matches one entry of a space-separated list, which is what
+// aria-labelledby is.
 function resolveViaReferrer(label) {
   if (!label.id) return false;
   const id = CSS.escape(label.id);
   // Two ways to point at a label target: aria-labelledby from an ordinary
-  // element, or xlink:href from an <svg><use> that draws it as a sprite. The
-  // sprite form is how feed ads label themselves now, and looking only for the
-  // first is why these reported "referrer NOT FOUND" while sitting inside a
-  // perfectly ordinary post. `*|href` matches href in any namespace.
+  // element, or xlink:href from an <svg><use> that draws it as a sprite - the form
+  // many feed ads use. `*|href` matches href in any namespace.
   const referrer =
     document.querySelector(`[aria-labelledby~="${id}"]`) ||
     document.querySelector(`use[*|href="#${id}"]`);
@@ -1360,16 +1168,11 @@ function processLabel(label) {
 
   const reason = classifyLabel(label);
   if (!reason) {
-    // NOTE: do not queue elements here just because they carry an
-    // aria-labelledby whose target doesn't resolve. That was tried (1.1.30)
-    // on the theory that ad labels arrive late, and it froze the feed:
-    // Facebook has a great many elements with dangling label references, so
-    // the retry queue floods and every one of them is re-examined on every
-    // tick for the full retry window. The cost never showed up in the perf
-    // line either, because that only times scanRoot.
-    //
-    // The theory was wrong anyway — late-arriving labels were not what hid
-    // feed ads. Following the sprite reference in classifyLabel was.
+    // NOTE: do not queue elements just because their aria-labelledby does not
+    // resolve. Facebook has a great many dangling label references, so the retry
+    // queue floods and each is re-examined every tick for the full retry window. It
+    // froze the feed, and never showed in the scan timing because the retry loop
+    // does not call scanRoot.
     return;
   }
 
@@ -1417,14 +1220,11 @@ function processLabel(label) {
   // 50ms loop for 8s each.
   if (reason === "unfollowed") return;
 
-  // Nor a label whose post Facebook simply hasn't rendered. Retrying cannot
-  // succeed — the candidate has no box and will not get one until Facebook
-  // reveals it, which the IntersectionObserver is already waiting for. On a
-  // virtualised feed most sponsored labels land here, so queueing them floods
-  // the retry loop with entries that are re-examined every 50ms for the full
-  // 8s window and can never resolve. That is the 1.1.35 regression's shape,
-  // arrived at from a different direction, and it is what made the mobile feed
-  // slow to catch up while a disabled extension loaded normally.
+  // Nor a label whose post Facebook hasn't rendered yet. Retrying cannot succeed:
+  // the candidate has no box until Facebook reveals it, which the
+  // IntersectionObserver is already waiting for. On a virtualised feed most
+  // sponsored labels land here, and queueing them floods the retry loop with
+  // entries re-examined every 50ms that can never resolve.
   if (deferred) return;
 
   if (!pendingLabels.has(label) && pendingLabels.size < MAX_PENDING_LABELS) {
@@ -1435,23 +1235,15 @@ function processLabel(label) {
 
 // --- Breakage detection ----------------------------------------------------
 
-// Everything on mobile is gated on one class name (MOBILE_BODY_CLASS) and the
-// app banner on one selector (APP_BANNER_SELECTOR). Both belong to Facebook,
-// and when either is renamed the symptom is silence: labels still classify,
-// nothing anchors, and the extension looks entirely healthy while hiding
-// nothing. That is the failure mode 1.1.39 spent three stacked fixes chasing,
-// and the thing that made it expensive was that no signal distinguished it
-// from "there were no ads in this feed".
+// Everything on mobile is gated on one class name and the app banner on one
+// selector, both Facebook's. When either is renamed the symptom is silence:
+// labels still classify, nothing anchors, and the extension looks healthy while
+// hiding nothing. "We classified labels and anchored none of them" catches any
+// structural change on either layout, not just the rename we thought of - for
+// two integer increments per label.
 //
-// The check is deliberately not "does html-renderer still match" — that only
-// catches the rename we already thought of. "We classified labels and anchored
-// none of them" catches any structural change, on either layout, including the
-// desktop landmarks. It costs two integer increments per classified label.
-//
-// Unlike the rest of the diagnostics here this is not DEBUG-gated. A silent
-// failure that only becomes audible in a build the user isn't running is still
-// a silent failure — and the whole point is to learn about a rename from the
-// field rather than from a bug report saying "it stopped working".
+// Not DEBUG-gated: a silent failure that only becomes audible in a build the
+// user isn't running is still a silent failure.
 const BREAKAGE_MIN_LABELS = 20;
 let labelsClassified = 0;
 let labelsAnchored = 0;
@@ -1471,16 +1263,10 @@ function noteLabelClassified() {
   labelsClassified += 1;
 }
 
-// Called once per label that classified but could not be anchored.
-//
-// A miss on a virtualised-out post is not breakage: on mobile most of the feed
-// is unrendered at any moment, those candidates have no box, and 1.1.45 defers
-// them to the reveal observer by design. Counting them made this warning fire
-// on every mobile page load, blaming a renamed structure for the extension
-// working exactly as intended.
-//
-// Anchoring even one label settles the question for this page — a feed where
-// some posts resolve and others don't is ordinary, and not what this looks for.
+// Called once per label that classified but could not be anchored. A miss on a
+// virtualised-out post is not breakage - those are deferred to the reveal
+// observer by design - so it is not counted. Anchoring even one label settles
+// the question for this page: some posts resolving and others not is ordinary.
 function noteLabelUnresolved(deferred) {
   if (deferred) {
     labelsDeferred += 1;
@@ -1523,15 +1309,11 @@ function warnAppBannerAnchorLost(label) {
 
 // --- Diagnostics readable on a phone ---------------------------------------
 
-// Firefox for Android has no devtools UI, so console.warn and the DEBUG perf
-// line are both unreadable on the one platform whose layout is hardest to
-// reason about. Everything below exists so the popup can show, on the device,
-// what the console would have said.
-//
-// This is not DEBUG-gated. The cost is a bounded array of small plain objects
-// built during the first few hides, and gating it would mean the diagnostics
-// only exist in a build that cannot be installed from AMO — which is where
-// phone users get theirs.
+// Firefox for Android has no devtools UI, so the console is unreadable on the
+// one platform whose layout is hardest to reason about. Everything below exists
+// so the popup can show, on the device, what the console would have said. Not
+// DEBUG-gated: phones install from AMO, so a debug-only panel would never reach
+// them. The cost is a small bounded array.
 const DIAG_SAMPLE_LIMIT = 8;
 const diagSamples = [];
 
@@ -1555,10 +1337,8 @@ function describeNode(el) {
 // wrapper holding the space", which on a feed looks like a gap you scroll past.
 const DIAG_CHAIN_DEPTH = 4;
 
-// The LATEST hides, not the first. A problem reported mid-scroll is almost
-// never in the first eight posts of the session, so a panel that kept the
-// first eight could not show it - the reported half-hide was the
-// seventeenth of that page.
+// The LATEST hides, not the first: a problem noticed mid-scroll is almost never
+// among the first eight posts of the session.
 function noteHiddenSample(container, reason, via) {
   if (diagSamples.length >= DIAG_SAMPLE_LIMIT) diagSamples.shift();
   const chain = [];
@@ -1567,40 +1347,30 @@ function noteHiddenSample(container, reason, via) {
     chain.push(describeNode(n));
     n = n.parentElement;
   }
-  // Which rule chose this element. Both routes report "sponsored", so a
-  // partial hide looked identical whichever produced it, and telling them
-  // apart took a screenshot and a guess.
+  // Which rule chose this element. Every route reports "sponsored", so without
+  // this a wrong hide looks the same whichever rule produced it.
   diagSamples.push({ reason, via, chain });
 }
 
-// What does a post we FAILED to hide actually look like? Every attempt to
-// answer that from the page console raced a DOM that deletes its own labels
-// within moments - 125 of 128 label nodes vanished inside 40 seconds on a live
-// feed, so five consecutive probes gave five different answers.
-//
-// Answering from in here is not subject to that: it runs on demand when the
-// popup asks, sees the same document the scan sees, and reports the small
-// leaf texts inside each unhidden card - which is where "Ad"/"Sponsored" lives
-// whatever element Facebook wraps it in this week.
-//
-// Costs nothing until the panel is opened.
+// What does a post we FAILED to hide look like? The page console cannot answer
+// reliably - Facebook deletes its own label nodes within moments, so successive
+// probes disagree. This runs on demand when the popup asks, sees the same
+// document the scan sees, and reports the small leaf texts inside each unhidden
+// card, which is where "Ad"/"Sponsored" lives whatever wraps it. Costs nothing
+// until the panel is opened.
 const UNHIDDEN_SAMPLE_LIMIT = 4;
 // A feed card is a few hundred pixels tall. Without an upper bound the
-// outermost-wins rule below selects the entire feed column - thousands of
-// pixels tall - which contains every card, so they all get filtered out as
-// nested inside it. The first survey reported "feed cards on page: 1" for
-// exactly that reason.
+// outermost-wins rule below selects the entire feed column, which contains every
+// card, so they all get filtered out as nested inside it.
 const UNHIDDEN_MAX_HEIGHT = 1800;
 // The feed column's own width, to tell posts from page furniture.
 const FEED_POST_MIN_WIDTH = 600;
 const FEED_POST_MAX_WIDTH = 760;
 const FEED_POST_MIN_HEIGHT = 300;
 
-// Counted across the WHOLE feed, not just what is on screen. The first version
-// of this restricted itself to the viewport and reported three cards, which
-// made "no unhidden ads" mean "none in the visible window" while a page full of
-// them scrolled past above and below. A diagnostic that samples a keyhole and
-// reads like a summary is worse than none.
+// Counted across the WHOLE feed, not just what is on screen: a viewport sample
+// reads "no unhidden ads" while a page full of them scrolls past above and
+// below.
 function surveyFeedCards() {
   const candidates = [];
   for (const el of document.querySelectorAll("div")) {
@@ -1616,19 +1386,14 @@ function surveyFeedCards() {
   const outer = candidates.filter((el) => !candidates.some((o) => o !== el && o.contains(el)));
   const visible = outer
     .filter((el) => !el.querySelector("[data-fbsb-hidden]") && !el.closest("[data-fbsb-hidden]"))
-    // Not posts: boxes Facebook leaves behind holding a scroll position. They
-    // are feed-width and several hundred pixels tall, so they counted, and
-    // "still showing: 25" read as 25 unblocked ads when several were empty.
-    // Reported as els=12 a=0 img=0 text=0 once the panel learned to say so.
+    // Not posts: boxes Facebook leaves behind holding a scroll position. They are
+    // feed-width and several hundred pixels tall, so without this they count as
+    // unhidden posts.
     .filter((el) => el.querySelectorAll("a[href]").length > 0 || (el.textContent || "").trim().length > 0);
-  // Every ad seen on 2026-09-11 carried a DANGLING aria-labelledby in its
-  // byline - a reference to a label Facebook deletes after computing the
-  // accessible name - while an organic post's byline reference resolves to a
-  // timestamp ("about an hour ago"). If that split holds across a whole feed it
-  // is a structural signal tied to the exact mechanism hiding the word "Ad".
-  //
-  // Counted, not acted on. Detection that hides a friend's post is worse than
-  // detection that misses an ad, so this ships as a measurement first.
+  // Whether each visible card's byline reference dangles or resolves. An ad's
+  // points at a label Facebook deletes after computing the accessible name; an
+  // organic post's resolves to a timestamp. The shape rule acts on this; the
+  // survey counts it so the split can be checked across a whole feed.
   let withDangling = 0;
   let withResolving = 0;
   for (const el of visible) {
@@ -1645,10 +1410,8 @@ function surveyFeedCards() {
   }
 
   return {
-    // hiddenPosts is authoritative. A hidden post is display:none, so it has no
-    // box, fails every size filter above and cannot be counted by looking at
-    // the page - which is why the first version of this reported "hidden by
-    // us: 1" directly beneath a hidden count of 7.
+    // hiddenPosts is authoritative. A hidden post is display:none, so it has no box,
+    // fails every size filter above, and cannot be counted by looking at the page.
     hidden: hiddenPosts.size,
     visible,
     withDangling,
@@ -1674,11 +1437,9 @@ function sampleUnhiddenPosts() {
     const seenText = new Set();
     for (const leaf of el.querySelectorAll("*")) {
       if (labels.length >= 12) break;
-      // Non-leaves are reported by their OWN text only, the same way
-      // classifyLabel reads them since 1.1.57. Without this the report has the
-      // identical blind spot the detector had, and an "Ad" sharing an element
-      // with an icon is invisible in both - which is exactly how several ad
-      // cards were able to look label-less.
+      // Non-leaves are reported by their OWN text only, the way classifyLabel reads
+      // them - otherwise the report shares the detector's blind spot, and an "Ad"
+      // sharing an element with an icon is invisible in both.
       const own = leaf.children.length ? ownText(leaf) : leaf.textContent;
       if (!own) continue;
       const t = own.replace(INVISIBLE_CHARS_RE, "").trim();
@@ -1693,12 +1454,10 @@ function sampleUnhiddenPosts() {
       seenText.add(t);
       labels.push(`${leaf.tagName.toLowerCase()}${leaf.children.length ? "*" : ""}:"${t}"`);
     }
-    // Two ad cards in a row reported a span:"·" - the separator that follows
-    // "Ad" in Facebook's byline - with no "Ad" text anywhere. So on those cards
-    // the label is drawn some non-textual way, and the panel could not say
-    // which. These three lines cover every remaining mechanism: a sprite
-    // reference, an accessible name pointing elsewhere, and a plain aria-label.
-    // Whichever one carries "Ad" is the thing detection has to read.
+    // An ad card can show the "·" that follows "Ad" in the byline with no "Ad" text
+    // anywhere, because the label is drawn some non-textual way. These three cover
+    // every remaining mechanism - a sprite reference, an accessible name pointing
+    // elsewhere, and a plain aria-label - so whichever carries "Ad" shows up here.
     const evidence = [];
     for (const u of el.querySelectorAll("use")) {
       if (evidence.length >= 6) break;
@@ -1723,11 +1482,9 @@ function sampleUnhiddenPosts() {
         }
       }
     }
-    // Where the card's links point. 1.1.63 detects ads by their /ads/about
-    // explainer link, so when a card is not hidden the first question is
-    // whether it has one - and a branded-content post promoting a brand may
-    // carry something else entirely. Paths only: the query strings Facebook
-    // appends are enormous and say nothing.
+    // Where the card's links point. The /ads/about explainer link marks an ad, so
+    // when a card is not hidden the first question is whether it has one. Paths
+    // only: Facebook's query strings are enormous and say nothing.
     for (const a of el.querySelectorAll("a[href]")) {
       if (evidence.length >= 12) break;
       const path = linkPath(a);
@@ -1752,17 +1509,13 @@ function sampleUnhiddenPosts() {
       posinset: near("[aria-posinset]"),
       pagelet: near('[data-pagelet^="FeedUnit"]'),
       labels,
-      // Links last in, first out: one ad card reported 7 links and showed
-      // 5, with the cut falling exactly where the answer was. Keep every link
-      // and let the aria-labels take what room is left.
+      // Links first: aria-labels used to crowd them out of the budget, and the cut
+      // fell exactly where the answer was.
       evidence: [...new Set(evidence.filter((e) => e.startsWith("href:")))]
         .slice(0, 12)
         .concat([...new Set(evidence.filter((e) => !e.startsWith("href:")))].slice(0, 8)),
-      // Three of the four cards in the 1.1.71 panel reported no text, no
-      // links, no aria and no labels at all - which is not what a feed post
-      // looks like, so either the report was blind or they were not posts.
-      // Five counts settle it: an empty box holding a scroll position reads
-      // a=0 img=0 text=0, a real post never does.
+      // Five counts that tell a post from an empty box holding a scroll position,
+      // which reads a=0 img=0 text=0 where a real post never does.
       shape: `els=${el.querySelectorAll("*").length} a=${el.querySelectorAll("a[href]").length} img=${el.querySelectorAll("img,video,canvas").length} text=${(el.textContent || "").trim().length}`,
     });
   }
@@ -1886,10 +1639,9 @@ function logUnresolved(label, reason) {
 }
 
 function retryPendingLabels() {
-  // The retry loop is where 1.1.35 hid: a growing queue re-examined every 50ms,
-  // invisible to the scan timer because it never calls scanRoot. Timing it is
-  // the only way that shape shows up as a number rather than as a page that
-  // feels wrong.
+  // The retry loop never calls scanRoot, so the scan timer cannot see it; a
+  // growing queue re-examined every 50ms only shows up as a number if it is timed
+  // separately.
   const retryStartedAt = performance.now();
   const now = Date.now();
   for (const [label, firstSeenAt] of pendingLabels) {
@@ -1936,24 +1688,17 @@ function ensureRetryLoopRunning() {
 
 // --- Scanning + mutation observing ----------------------------------------
 
-// Some ads' accessibility labels are *ephemeral*: Facebook inserts the portal
-// <span id="_r_…_">Sponsored</span>, the browser computes the post's accessible
-// name from it, and the span is removed again — sometimes within the same
-// frame. By the time anything looks, aria-labelledby points at an id that no
-// longer resolves, and the only evidence the post was an ad is gone.
-//
-// Scanning is deferred to requestAnimationFrame (see scheduleScan), and that
-// callback skips roots that are no longer connected, so a span with that
-// lifetime is never examined at all. Recording the text synchronously in the
-// observer callback — the one moment the node is guaranteed to still exist —
-// is what makes those ads detectable.
-//
-// Bounded, oldest-first, because Facebook mints these continuously.
+// Some ads' labels are ephemeral: Facebook inserts the portal span, the browser
+// computes the post's accessible name from it, and the span is removed again -
+// sometimes within the same frame. Scanning waits for requestAnimationFrame and
+// skips disconnected roots, so such a span would never be examined. Recording
+// its text synchronously in the observer callback, the one moment it is
+// guaranteed to exist, is what makes those ads detectable. Bounded, oldest
+// first, because Facebook mints these continuously.
 const MAX_LABEL_CACHE = 200;
 const labelTextById = new Map();
 // How many labels completed via a late text node rather than arriving whole.
-// A non-zero count here is the path 1.1.52 added; zero on a feed with ads means
-// that is not how they are being built any more.
+// Zero on a feed with ads means that is not how they are being built any more.
 let lateTextLabels = 0;
 // Labels recovered from a removal record rather than an insertion - see the
 // note in the observer. Non-zero means Facebook is deleting labels faster than
@@ -2007,22 +1752,13 @@ function cacheLabelTargets(node) {
   }
 }
 
-// `use` is here because sprite-rendered labels carry no text of their own —
-// see the reference-following branch in classifyLabel.
-// SVG <text> is in here because Facebook draws some feed-ad labels as vector
-// text rather than as a <span>: an inline <svg> holding <text>Ad</text>. That
-// element classifies correctly - classifyLabel's leaf branch reads its
-// textContent like any other - but it was never handed to the scan, so those
-// ads were never examined at all. Confirmed by inspecting a live ad's label:
-// "classifies as Ad: true, selectable: false".
-//
-// Cheap to add: SVG text nodes are rare next to spans, and the selector is
-// evaluated once per scanned subtree rather than per element.
-// [role="button"] added 1.1.71. On desktop the Follow button is a <div>, not a
-// span, so "Follow" was never even examined there - the diagnostics panel had
-// been printing div:"Follow" inside cards that stayed visible for months. Only
-// the role is matched, not every div: it keeps the added cost proportional to
-// the page's controls rather than to its markup.
+// Elements that can carry a label, beyond spans, links and labelled elements:
+//   - use: sprite-rendered labels carry no text of their own - see the
+//     reference-following branch in classifyLabel.
+//   - text: some labels are SVG <text> rather than a <span>.
+//   - [role="button"]: on desktop the Follow button is a <div>. Matching the
+//     role rather than every div keeps the cost proportional to the page's
+//     controls, not its markup.
 const LABEL_SELECTOR = 'span, a, use, text, [aria-label], [aria-labelledby], [role="button"]';
 
 // Self-instrumentation. Whether this extension is what's stalling the feed is
@@ -2060,59 +1796,42 @@ function reportStats(now) {
 
 // --- Ads Facebook does not label in the DOM ---------------------------------
 //
-// Some feed ads carry no readable label at all. Measured on 2026-09-11: the
-// byline is an anchor wrapping an EMPTY span whose accessible name comes from a
-// node deleted immediately afterwards, so the word "Ad" renders on screen while
-// existing nowhere in the document. Eleven text and attribute routes were tried
-// against it; DESKTOP-AD-LABELS.md records each and why it failed.
+// Some feed ads carry no readable label at all: the word "Ad" renders on screen
+// while existing nowhere in the document. DESKTOP-AD-LABELS.md records every
+// route tried against it and why each failed.
 //
-// What such a card does have is a shape, and it takes two signals together:
+// What such a card does have is a shape. It becomes a candidate by pointing at a
+// label that no longer exists, linking off Facebook, or carrying a call to
+// action - the three entry points in sweepUnlabeledAds - and is then vetoed if
+// it looks like a real post: it links to itself, or its byline says how old it
+// is. On by default; the popup can switch it off, and the audit list in
+// Diagnostics names everything it takes.
 //
-//   1. A DANGLING aria-labelledby in the card - a reference to a label that is
-//      neither live nor cached. An organic post's byline reference resolves, to
-//      a timestamp like "about an hour ago".
-//   2. NO permalink. A real post links to itself (/name/posts/pfbid...); an ad
-//      links only to the advertiser's page and out through /l.php.
-//
-// Either alone is too weak. A post whose timestamp label happened to be swept
-// would match the first; plenty of cards lack a permalink in some states. Both
-// together matched every ad seen and no organic post seen - but "seen" is a few
-// dozen cards on one account, which is why this is off by default and worded in
-// the popup as something that may occasionally hide a real post.
-// Widened 1.1.71. "A real post links to itself" is the veto the whole shape
-// rule rests on, so every organic permalink shape has to be in here or the
-// rule hides real posts. /posts/ alone covered a profile post and nothing
-// else: a group post links to /groups/<id>/, a listing to /commerce/listing/,
-// a reel to /reel/. The earlier panel showed exactly that - a local
-// buy-and-sell post whose only self-link was /commerce/listing/1000000001.
+// "A real post links to itself" is the veto the rule rests on, so every organic
+// self-link shape has to be listed here, or the rule hides real posts: a profile
+// post, a group post, a listing, a reel, a photo and so on.
 const PERMALINK_RE = /\/(posts|permalink|permalink\.php|story\.php|videos|video\.php|watch|photo|photo\.php|photos|reel|reels|groups|events|notes|share|media\/set|commerce\/listing|marketplace\/item)([\/?]|$)/;
 
 // NOT in the list above, deliberately: /stories/<id>/. It looks exactly like a
-// self-link, and a screenshot on 2026-09-11 showed it on a card reading
-// "Sponsored" in plain sight. Adding it would have permanently immunised that ad and every one
-// shaped like it. Enumerating permalink shapes is whack-a-mole and this is the
-// mole: only add a shape here on evidence that ads do not use it.
+// self-link, but ads use it too - one reading "Sponsored" in plain sight carried
+// it - so adding it would immunise every ad shaped that way. Only add a shape
+// here on evidence that ads do not use it.
 
-// Facebook routes every outbound link through this redirector. An ad always
-// has one, because sending you off-site is the entire point; an organic post
-// only has one when it happens to be sharing a link, and that post still links
-// to itself. Added 1.1.71 as a second way in, after a live panel reported an
-// obvious ad - an advertiser's domain, "LIMITED TIME OFFER", /l.php - on a card with
-// no aria-labelledby anywhere, so the dangling-reference route could not see
-// it. Facebook had simply stopped shipping the reference: the survey read
-// "0 have a DANGLING byline ref, 0 resolve cleanly" across all 16 cards.
+// Facebook routes outbound links through this redirector. An ad links off
+// Facebook, because sending you off-site is the point; an organic post only does
+// when it happens to share a link, and then it still links to itself. This is
+// the way in for ads whose byline carries no label reference at all.
 const OUTBOUND_PATH = "/l.php";
 
-// A third way in, for ads that never leave Facebook. A lead-form ad's button
-// ("Sign up", "Apply now", "Get quote") opens a form on Facebook itself, so it
-// has no outbound link, and its "Ad" label is the unreadable kind - so on
-// 2026-09-23 two lead-form ads sat in the feed with nothing any rule could
-// see. What every ad does carry is a call to
-// action, and these are the words Facebook puts on those buttons.
+// A third way in, for ads that never leave Facebook: a lead-form ad's button
+// ("Sign up", "Apply now", "Get quote") opens a form on Facebook itself, so
+// there is no outbound link, and its label is the unreadable kind. What every ad
+// does carry is a call to action, and these are the words Facebook puts on
+// those buttons.
 //
-// Deliberately absent: "Message" and "Send message" (every marketplace
-// listing), "Join", "Follow", "Interested", "Going". A match only makes a card
-// a candidate; every veto that protects a real post still applies after it.
+// Deliberately absent: "Message"/"Send message" (every marketplace listing),
+// "Join", "Follow", "Interested", "Going". A match only makes a card a
+// candidate; every veto that protects a real post still applies.
 const AD_CTA_TEXTS = new Set([
   "sign up", "apply now", "get quote", "learn more", "shop now", "order now",
   "book now", "buy now", "get offer", "get offers", "download", "install now",
@@ -2145,17 +1864,12 @@ function isOutboundLink(a) {
   return !!m && !FACEBOOK_HOST_RE.test(m[1]);
 }
 
-// The strongest signal yet that a card is a real post, and it came straight
-// out of a panel: every post left showing on 2026-09-23 carried a byline
-// reference that RESOLVED to a time - "27 minutes ago", "7 hours ago", "about
-// an hour ago" - while every ad's was dangling or absent. Facebook puts
-// "Sponsored" where a post puts its age, and the ad's version has no text.
-//
-// This matters more than it sounds. Enumerating permalink shapes was never
-// going to hold: /stories/<id>/ is used by ads AND by real posts, so it can
-// sit in neither list, and Pages whose self-link took that form were being
-// hidden as ads - three appeared in the audit list on that reading. A timestamp is not a shape
-// Facebook can quietly rename.
+// A byline reference that resolves to a time - "27 minutes ago", "about an hour
+// ago" - marks a real post: Facebook puts "Sponsored" where a post puts its age,
+// and the ad's version has no text. A sturdier veto than enumerating permalink
+// shapes: /stories/<id>/ is used by ads and real posts alike, so it can sit in
+// neither list, and a timestamp is not a shape Facebook can quietly rename. Not
+// every page load carries these references, so it is one veto among several.
 const TIMESTAMP_RE = /(\bago\b|^(just now|yesterday|today)\b|^\d{1,3}\s?(s|m|h|d|w|y)$|^[a-z]{3,9}\s\d{1,2}(\s|,|$)|\bat\b\s\d{1,2}:\d{2})/i;
 
 function hasResolvingTimestamp(card) {
@@ -2173,12 +1887,11 @@ function hasResolvingTimestamp(card) {
 // tray only when several tiles happened to be linked at once.
 const MAX_PROFILE_LINKS = 3;
 
-// Facebook's own routes. None of them is a page, and treating one as a page
-// name is dangerous rather than merely useless: 1.1.82 recorded "photo" from a
-// click on a post's picture - the first link inside a picture is /photo/ - and
-// since nearly every photo post links there, that one entry set aside the
-// "this is a real post" veto for all of them. Ignored wherever they appear,
-// including in a list that already holds one.
+// Facebook's own routes. None is a page, and treating one as a page name is
+// dangerous rather than merely useless: nearly every photo post links to
+// /photo/, so "photo" in the advertiser list would set aside the real-post veto
+// for all of them. Ignored wherever they appear, including lists that already
+// hold one.
 const RESERVED_PATHS = new Set([
   "photo", "photos", "photo.php", "watch", "reel", "reels", "video", "videos",
   "video.php", "stories", "story.php", "permalink.php", "profile.php", "posts",
@@ -2355,17 +2068,11 @@ function hasPermalink(card) {
   return false;
 }
 
-// Where the climb has to stop. Height was the wrong answer: a card is often far
-// taller than the media block its outbound link sits in, so "the parent is much
-// taller, we must have left the card" fired *inside* the card and the rule hid
-// the picture out of an ad while the byline, the text and the reaction counts
-// stayed. Screenshot 2026-09-11.
-//
-// The upper height bound already keeps the climb out of the feed column, which
-// runs to thousands of pixels. What it does not cover is a short feed - few
-// enough posts that the column itself fits - so stop instead at the first
-// ancestor holding more than one card-shaped child. A card has one subject; a
-// container of cards has several.
+// Where the climb has to stop. Not at a jump in height: a card is often far
+// taller than the media block its link sits in, so that rule fired inside the
+// card and hid only the picture. The height ceiling keeps the climb out of a long
+// feed column; for a short one, stop at the first ancestor holding more than one
+// card-shaped child. A card has one subject; a container of cards has several.
 function holdsSeveralCards(el) {
   let cards = 0;
   for (const child of el.children) {
@@ -2380,17 +2087,14 @@ function holdsSeveralCards(el) {
   return false;
 }
 
-// Climb from a dangling label reference or an outbound link to the card holding
-// it. Starting from those rather than from every <div> is what makes a repeated
-// document-wide sweep affordable: a feed holds a handful of them and thousands
-// of divs, and only they can satisfy the rule.
-// Fourteen levels was nowhere near enough. Facebook nests a call-to-action
-// block twenty-odd elements below the card, so a climb starting at an outbound
-// link ran out of steps partway up and kept whatever fitted on the way - the
-// media block. That is the "image gone, text and reactions still there" bug:
-// two cases by screenshot, and a third straight from the panel, which listed the same card under HIDDEN BY SHAPE *and* under NOT
-// HIDDEN. The fixtures never caught it because a fixture card is four levels
-// deep and a real one is not.
+// Climb from a dangling label reference, an outbound link or a call to action
+// to the card holding it. Starting from those rather than from every <div> keeps
+// a repeated document-wide sweep cheap: a feed holds a handful of them and
+// thousands of divs.
+//
+// Thirty levels, because Facebook nests a call to action twenty-odd elements
+// below the card; a shorter climb runs out of steps and keeps the media block it
+// passed on the way.
 const SHAPE_MAX_CLIMB = 30;
 
 function cardFromLabelRef(el) {
@@ -2418,15 +2122,10 @@ function cardFromLabelRef(el) {
   return best;
 }
 
-// Feed-width and feed-height is not the same as "a post". The stories tray sits
-// at the top of the feed at exactly the same width, and the audit list caught
-// the rule taking it: "Online status indicatorActive -> /stories/1221077...",
-// twice. Facebook also leaves empty boxes holding a scroll position where a
-// post used to be - the panel reported two at els=12 a=0 img=0 text=0.
-//
-// Neither is a post, and neither should ever have been a candidate. A post has
-// something to say and exactly one subject; the tray has many and the spacer
-// has none.
+// Feed-sized is not the same as "a post". The stories tray sits at the top of
+// the feed at the same width, and Facebook leaves empty boxes holding a scroll
+// position where a post used to be. A post has something to say and exactly one
+// subject; the tray has many and the spacer has none.
 const POST_MIN_TEXT = 40;
 
 function looksLikePost(card) {
@@ -2440,10 +2139,8 @@ function looksLikePost(card) {
 }
 
 // The shape rule is the only one that infers rather than reads, so it is the
-// only one that can hide something real - and until 1.1.73 the panel reported
-// only how many it had taken, which is no help at all if the worry is *which*.
-// A name and a link each is enough: a friend's name in this list is the
-// answer, immediately. It found the stories tray on its first reading.
+// only one that can hide something real. A count cannot say *which*; a name and
+// a link each can, and a friend's name in this list is the answer immediately.
 const MAX_SHAPE_AUDIT = 20;
 const shapeHides = [];
 
@@ -2469,14 +2166,11 @@ function describeShapeHide(card) {
   };
 }
 
-// How often the whole document is re-checked. Until 1.1.71 the sweep ran only
-// over the subtree a mutation had touched, which measured every card at the one
-// moment it could not possibly qualify: when a card is inserted its byline
-// label is still live, and Facebook deletes that label a beat later in a
-// mutation whose target is no longer inside the card. So each card was tested
-// while its reference still resolved, went dangling, and was never looked at
-// again. That is exactly what the panel showed on 2026-09-11 - by-shape 14,
-// while a card reporting by#_r_122_->MISSING and no permalink sat visible.
+// How often the whole document is re-checked. A card inserted with its byline
+// label still live cannot qualify yet, and Facebook deletes that label a beat
+// later in a mutation outside the card - so a sweep over only the changed
+// subtree would test each card at the one moment it cannot match, and never
+// again.
 const SWEEP_INTERVAL_MS = 500;
 let lastSweepAt = 0;
 
@@ -2580,16 +2274,11 @@ function scanRoot(root) {
   reportStats(finishedAt);
 }
 
-// A single MutationObserver callback invocation already batches every
-// mutation from one render pass, but Facebook can still fire many
-// *separate* callback invocations in quick succession (e.g. several small
-// bursts while a post streams in) — scanning synchronously on every one of
-// those, with no batching across them, means redundant re-scanning of
-// overlapping subtrees. requestAnimationFrame coalesces everything that
-// happened since the last paint into one scan pass, timed to run right
-// before the *next* paint — the latest possible moment that still hides
-// content before the browser would otherwise render it, rather than
-// scanning after an arbitrary fixed delay.
+// Facebook fires many separate observer callbacks in quick succession while a
+// post streams in, and scanning on each one re-scans overlapping subtrees.
+// requestAnimationFrame coalesces everything since the last paint into one pass,
+// run just before the next paint - the latest moment that still hides content
+// before it is drawn.
 const pendingRoots = new Set();
 let scanScheduled = false;
 
@@ -2607,18 +2296,13 @@ function scheduleScan(root) {
   });
 }
 
-// Facebook aggressively recycles DOM nodes for unrelated content, so a
-// container we hid earlier can be repurposed to hold something innocent.
-// But a hidden post also keeps mutating internally for entirely benign
-// reasons (React re-renders, lazy-loaded media, sidebar modules that
-// refresh themselves), so "children were added" on its own says nothing.
-// Re-check the evidence instead: if the label that earned the hide is
-// still there and still classifies, the node wasn't recycled and must
-// stay hidden. Only when that evidence is gone is a full re-scan of the
-// container worth paying for, and only if that also comes up empty do we
-// restore. Treating every mutation as recycling meant ads were hidden and
-// then immediately un-hidden, permanently — nothing rescans a container
-// once restored, because scanRoot only ever sees newly-added nodes.
+// Facebook recycles DOM nodes, so a container we hid can be repurposed for
+// something innocent. But a hidden post also keeps mutating for benign reasons
+// (re-renders, lazy media), so "children were added" says nothing on its own.
+// Re-check the evidence: if the label that earned the hide still classifies, the
+// node was not recycled. Only when it is gone is a full re-scan worth paying
+// for, and only if that comes up empty is the post restored - restoring on every
+// mutation un-hid ads permanently, since nothing rescans a restored container.
 function stillQualifies(container, info) {
   if (info.label.isConnected && container.contains(info.label) && classifyLabel(info.label)) {
     return true;
@@ -2655,21 +2339,13 @@ const observer = new MutationObserver((mutations) => {
         restorePost(staleContainer);
       }
     }
-    // Removals carry the label too, and often only the removal does.
-    // MutationObserver callbacks are asynchronous: Facebook can create the
-    // span, set its text, let the browser compute the card's accessible name,
-    // then empty and remove it - all in one synchronous task. By the time this
-    // callback reads the added node, textContent is already "". The removal
-    // record still holds the data, because a removed text node keeps its
-    // content and a removed element keeps its id.
-    //
-    // Observed 2026-09-11 across four advertisers: cards reporting
-    // by#<id>->MISSING with matched == anchored, meaning the label was never
-    // seen at all. Rooting the observer at documentElement (1.1.61) did not
-    // help, which ruled out "inserted somewhere we were not watching".
-    //
-    // Bounded: an element only matters if it carries an id, and a text node
-    // only if its parent is an id-bearing leaf. Both are property reads.
+    // Removals carry the label too, and often only the removal does. Facebook can
+    // create a span, set its text, let the browser compute the accessible name, then
+    // empty and remove it - all in one task - so by the time this callback reads the
+    // added node its text is already gone. The removal record still holds it: a
+    // removed text node keeps its content and a removed element keeps its id.
+    // Bounded: only id-bearing elements, or text nodes whose parent is an id-bearing
+    // leaf.
     for (const node of mutation.removedNodes) {
       if (node.nodeType === Node.ELEMENT_NODE) {
         if (node.id) rememberLabelTarget(node);
@@ -2690,18 +2366,11 @@ const observer = new MutationObserver((mutations) => {
     for (const node of mutation.addedNodes) {
       if (node.nodeType !== Node.ELEMENT_NODE) {
         // An ad's label often completes in two steps: Facebook inserts
-        // <span id="_r_…_"> empty, then fills it a moment later. The span's
-        // insertion caches nothing, because rememberLabelTarget reads "" and
-        // bails — and the text arriving afterwards is a *text node*, which this
-        // loop used to skip. The label was therefore never cached and the post
-        // never re-examined, leaving the ad visible with everything needed to
-        // hide it sitting in the DOM. Observed on a live desktop feed: span
-        // present, text "Ad", referrer anchorable, and still not hidden.
-        //
-        // Kept to O(1): only a parent that carries an id and holds no elements
-        // can be one of these label spans, so this is a textContent read on a
-        // leaf plus a Map set, not a subtree walk. rememberLabelTarget resolves
-        // forward from there, so no scan needs scheduling.
+        // <span id="_r_..._"> empty, then fills it. The insertion caches nothing, and the
+        // text arriving afterwards is a text node - so without this the label is never
+        // cached and the post never re-examined. Kept O(1): only a parent that carries
+        // an id and holds no elements can be one of these spans. rememberLabelTarget
+        // resolves forward from there.
         const parent = node.parentElement;
         if (parent && parent.id && parent.children.length === 0) {
           lateTextLabels += 1;
@@ -2727,44 +2396,23 @@ const observer = new MutationObserver((mutations) => {
 
 // Start watching and hiding immediately, before settings are read. main() has
 // to await storage, and Facebook renders the first posts during exactly that
-// gap — the moment when the most ads are on screen. Waiting for storage meant
-// every ad in the first screenful was painted and left visible until the read
-// resolved, and any label created and destroyed in those milliseconds was
-// never seen at all.
+// gap. Hiding under defaults is safe because it is reversible: main() restores
+// anything the user has turned off as soon as it knows, so the worst case is a
+// wanted post flickering out and back.
 //
-// Hiding under defaults is safe because it is reversible: main() restores any
-// reason the user has actually turned off as soon as it knows. The worst case
-// is a post the user wanted to keep flickering out and back within a few
-// milliseconds; the alternative was every ad staying visible for that same
-// window, every page load. Defaults hide all three, so for anyone who hasn't
-// changed them there is nothing to undo.
-// document.body can be null here, despite run_at: "document_idle". Observed on
-// facebook.com in Firefox: the script ran, this line threw
-//
-//   TypeError: MutationObserver.observe: Argument 1 is not an object
-//
-// and module evaluation stopped dead. The observer never attached, the initial
-// scan never ran and main() never executed - while the message listener
-// registered further up kept answering, so the popup looked healthy and the
-// extension hid nothing at all. The diagnostics panel read "0 scans, 0 observer
-// calls" for minutes on a live feed, which is what finally gave it away.
-//
-// Never assume the body is there. If it is missing, watch for it.
+// document.body can be null here despite run_at "document_idle". Observing it
+// then throws, module evaluation stops, and the extension hides nothing while
+// the message listener above keeps answering the popup as if healthy. Never
+// assume the body is there; if it is missing, wait for it.
 let bootState = "pending";
 
 function startObserving() {
-  // documentElement, not body. A label span inserted outside <body> - directly
-  // under <html> - is invisible to an observer rooted at body, however briefly
-  // it lives, and these portal spans are page-level scratch nodes of exactly
-  // that kind. Observed 2026-09-11: an ad whose card pointed at
-  // by#_r_18n_->MISSING, meaning the span was neither live nor ever cached,
-  // while matched/anchored showed nothing had even been recognised.
-  //
-  // The extra coverage is <head> and any stray top-level nodes. Facebook
-  // mutates head when it injects styles, so this is not free - but the observer
-  // was measuring 0.0% of wall-clock across 89 calls, and the panel reports
-  // that figure, so a regression here shows up as a number rather than a
-  // guess.
+  // documentElement, not body: a label span inserted directly under <html> is
+  // invisible to an observer rooted at body, and these portal spans are
+  // page-level scratch nodes of exactly that kind. The extra coverage is <head>,
+  // which Facebook mutates when it injects styles; the observer's share of
+  // wall-clock time is in the diagnostics panel, so a cost here shows up as a
+  // number.
   observer.observe(document.documentElement, { childList: true, subtree: true });
   cacheLabelTargets(document.body);
   scanRoot(document.body);
