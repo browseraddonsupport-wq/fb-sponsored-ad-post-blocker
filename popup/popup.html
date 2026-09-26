@@ -28,59 +28,92 @@
     </section>
 
     <p id="notFacebook" class="not-facebook" hidden>
-      Open a facebook.com tab to see stats for it. Settings below still apply everywhere.
+      Open Facebook to see how many posts are hidden. Your settings apply
+      everywhere.
     </p>
 
-    <section class="options">
-      <label class="option">
-        <input type="checkbox" id="hideSponsored" />
-        <span>Hide "Sponsored" posts</span>
-      </label>
-      <label class="option">
-        <input type="checkbox" id="hideSuggested" />
-        <span>Hide "Suggested for you" posts</span>
-      </label>
-      <label class="option">
-        <input type="checkbox" id="hideUnfollowed" />
-        <span>Hide posts from Pages/Groups you don't follow</span>
-      </label>
-      <label class="option">
-        <input type="checkbox" id="hideAppBanner" />
-        <span>Hide the mobile &quot;Open app&quot; bar</span>
+    <h2>What to hide</h2>
+    <section class="group">
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">Sponsored posts</span>
+          <span class="desc">Ads marked "Sponsored"</span>
+        </span>
+        <input type="checkbox" class="switch" id="hideSponsored" />
       </label>
       <!-- The only rule that infers "ad" from shape rather than reading a
            label, so it is the only one that can hide a real post. On by
            default because Facebook now ships ads with no readable label, but
            worded so that switching it off is the obvious first move if a real
            post ever disappears. -->
-      <label class="option">
-        <input type="checkbox" id="hideUnlabeledAds" />
-        <span>Hide ads Facebook doesn't label <em>(turn off if a real post ever disappears)</em></span>
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">Unlabelled ads</span>
+          <span class="desc">Ads Facebook doesn't mark. Turn off if a real post goes missing.</span>
+        </span>
+        <input type="checkbox" class="switch" id="hideUnlabeledAds" />
       </label>
-      <!-- The named-page escape hatch. The shape rule cannot tell a Page you
-           follow posting a link from an advertiser posting one when Facebook
-           serves neither a timestamp nor a permalink, and the audit list in
-           Diagnostics names whatever it took - so the fix for a page you lost
-           is to paste its name here. -->
-      <label class="option keep-pages">
-        <span>Never hide posts from these pages</span>
-        <textarea id="keepPages" rows="2" placeholder="DetroitLions"></textarea>
-        <small>One per line, as it appears in the page's address.</small>
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">Suggested posts</span>
+          <span class="desc">Posts Facebook recommends to you</span>
+        </span>
+        <input type="checkbox" class="switch" id="hideSuggested" />
       </label>
-      <label class="option">
-        <input type="checkbox" id="showMarkers" />
-        <span>Show a "This is an ad" button on posts <em>(how the lists below get filled in)</em></span>
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">Pages you don't follow</span>
+          <span class="desc">From Pages and Groups you haven't followed or joined</span>
+        </span>
+        <input type="checkbox" class="switch" id="hideUnfollowed" />
       </label>
-      <label class="option keep-pages">
-        <span>Always treat these pages as advertisers</span>
-        <textarea id="adPages" rows="2" placeholder="someadvertiser"></textarea>
-        <small>Their posts are hidden when they link off Facebook.</small>
-      </label>
-      <label class="option">
-        <input type="checkbox" id="placeholderMode" />
-        <span>Show a "Show" placeholder instead of removing completely</span>
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">"Open app" bar</span>
+          <span class="desc">The banner on Facebook in a phone browser</span>
+        </span>
+        <input type="checkbox" class="switch" id="hideAppBanner" />
       </label>
     </section>
+
+    <h2>While browsing</h2>
+    <section class="group">
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">"This is an ad" button</span>
+          <span class="desc">Appears over pictures, for ads that slip through</span>
+        </span>
+        <input type="checkbox" class="switch" id="showMarkers" />
+      </label>
+      <label class="switch-row">
+        <span class="text">
+          <span class="name">Display a "Show" button to reveal hidden posts</span>
+          <span class="desc">Also offers to always show that Page</span>
+        </span>
+        <input type="checkbox" class="switch" id="placeholderMode" />
+      </label>
+    </section>
+
+    <!-- The two page lists. Most people never type into them - the buttons on
+         the page fill them in - so they are folded away rather than greeting
+         everyone with two empty boxes. -->
+    <details class="lists" id="lists">
+      <summary>Your lists <span class="list-count" id="listCount"></span></summary>
+      <!-- The named-page escape hatch. The shape rule cannot tell a Page you
+           follow posting a link from an advertiser posting one when Facebook
+           serves neither a timestamp nor a permalink, so the fix for a page you
+           lost is to name it here. -->
+      <label class="list">
+        <span class="name">Always show these Pages</span>
+        <textarea id="keepPages" rows="2" placeholder="PageName"></textarea>
+        <span class="desc">Filled in by "Not an ad" and "Always show". One per line, as in the Page's address.</span>
+      </label>
+      <label class="list">
+        <span class="name">Always treat these Pages as ads</span>
+        <textarea id="adPages" rows="2" placeholder="PageName"></textarea>
+        <span class="desc">Filled in by "This is an ad". Their posts are hidden when they link off Facebook.</span>
+      </label>
+    </details>
 
     <!-- Android has no devtools, so this is the only way to see what the
          extension is actually doing on a phone. Collapsed by default: it is
@@ -91,7 +124,7 @@
       <button type="button" id="copyDiagnostics">Copy</button>
     </details>
 
-    <footer>Changes apply immediately, no reload needed.</footer>
+    <footer>Changes apply right away.</footer>
 
     <script src="popup.js"></script>
   </body>

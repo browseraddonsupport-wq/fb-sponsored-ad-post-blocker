@@ -31,6 +31,7 @@ const titleEl = document.querySelector("header h1");
 const diagnosticsEl = document.getElementById("diagnostics");
 const diagnosticsBodyEl = document.getElementById("diagnosticsBody");
 const copyDiagnosticsEl = document.getElementById("copyDiagnostics");
+const listCountEl = document.getElementById("listCount");
 
 const FACEBOOK_ORIGINS = { origins: ["*://*.facebook.com/*"] };
 
@@ -61,6 +62,16 @@ const ALL_CONTROLS = [...Object.values(CHECKBOXES), ...Object.values(TEXTAREAS)]
 
 let populated = false;
 ALL_CONTROLS.forEach((el) => { el.disabled = true; });
+
+// How many pages the folded "Your lists" section holds, so it is clear from the
+// outside whether there is anything in there worth opening.
+function refreshListCount() {
+  let n = 0;
+  for (const el of Object.values(TEXTAREAS)) {
+    n += el.value.split(/[\n,]/).filter((s) => s.trim()).length;
+  }
+  listCountEl.textContent = n ? `(${n})` : "";
+}
 
 function saveKey(key, value) {
   if (!populated) return;
@@ -108,6 +119,7 @@ async function init() {
   const settings = await browser.storage.local.get(DEFAULT_SETTINGS);
   for (const [key, el] of Object.entries(CHECKBOXES)) el.checked = !!settings[key];
   for (const [key, el] of Object.entries(TEXTAREAS)) el.value = settings[key] || "";
+  refreshListCount();
   populated = true;
   ALL_CONTROLS.forEach((el) => { el.disabled = false; });
 
@@ -284,7 +296,10 @@ for (const [key, el] of Object.entries(CHECKBOXES)) {
 // "input" rather than "change": a textarea only fires change on blur, and a
 // popup is routinely dismissed without ever blurring the field.
 for (const [key, el] of Object.entries(TEXTAREAS)) {
-  el.addEventListener("input", () => saveKey(key, el.value));
+  el.addEventListener("input", () => {
+    saveKey(key, el.value);
+    refreshListCount();
+  });
 }
 
 init();
