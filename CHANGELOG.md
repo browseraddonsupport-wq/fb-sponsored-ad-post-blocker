@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.1.88
+
+### Fixed
+
+- **The right-hand column no longer disappears with its ad.** With "Hide
+  Sponsored posts" on, the whole right-hand column went — Birthdays, Contacts
+  and Group chats along with the sponsored block at its top. Facebook now wraps
+  every section of that column in one element, and the extension hid "the
+  column's child that holds the Sponsored label", which had become the entire
+  column. It now climbs from the label and stops before it would take in
+  another section's heading, so only the sponsored block goes.
+- Rail items are no longer widened to "the whole post". That widening is built
+  for feed cards, and in the narrow right-hand column nothing it measures would
+  stop it short of the Contacts list.
+- **"Show" on a hidden post now lasts.** The label that hid the post was still
+  in it, so the next scan — a moment later — hid it again. A post you reveal
+  stays revealed while it is on the page.
+- **Every placeholder can keep its page.** "Not an ad" (on sponsored posts) or
+  "Always show" (on the rest) adds the page to "Never hide posts from these
+  pages", so its posts are left alone after a reload too. It used to be offered
+  only on posts hidden by the unlabelled-ad rule, and the list was only
+  consulted by that rule, so a wrongly hidden post could be shown but never
+  kept. The list now applies to every rule, matched on who posted: an ad that
+  merely tags a page on the list is still hidden.
+- **An ad could come back and stay.** A hidden post is re-checked whenever it
+  changes, to let go of page elements Facebook reuses for something else. If
+  its label was missing at that moment — Facebook re-rendering it, a video
+  player rebuilding — the ad was given back, and nothing looked at it again.
+  Seen once in a live feed: a video ad labelled three ways, left showing. It is
+  now looked at again one and three seconds later.
+- Ads hidden by the unlabelled-ad rule or by "This is an ad" carry no label,
+  so that same re-check gave them back on any change inside them, until the
+  next sweep hid them again up to half a second later. They are now re-checked
+  against what hid them: a link off Facebook or an ad button.
+
+### Changed
+
+- **A simpler popup.** Settings are switches in two groups, "What to hide" and
+  "While browsing", each with a short name and one plain line on what it does,
+  in place of long labels with warnings in brackets. The two page lists are
+  folded into "Your lists", which shows how many pages they hold; the buttons
+  on the page fill them in, so most people never need to open it. Follows the
+  browser's dark mode. Every setting, and where it is stored, is unchanged.
+
+### Verified
+
+56 fixtures pass. Seven are new, and all but one fail on 1.1.87: the
+right-hand column (its ad block hidden, the section beside it kept), Show
+lasting through a rescan, "Not an ad" keeping a page through a reload, an ad
+whose label goes missing for a moment, and a change inside an ad the
+unlabelled-ad rule hid. The seventh guards the keep list against a tagged
+page. The first of those tests to be written for the last item passed on
+1.1.87 too — scans the harness queued while building the card were hiding the
+ad again — and was rewritten until it could fail.
+
+On the live page, the new right-hand-column climb picks out the sponsored block
+and nothing else from every starting point. In a scroll through about 180
+feed posts, every post showing an ad marker was hidden.
+
 ## 1.1.87
 
 Cleanup. What the extension hides, and how, is unchanged.
