@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "GUARD ON THE GUARD. The keep list now applies to every rule, but by author: a post BY a kept page. An ad that merely links to a page on the list - a shop tagging a team you keep - is still the shop's ad.",
+  "settings": {
+    "keepPages": "favouriteteam"
+  },
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"ad\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\">Some Shop</a><span>Sponsored</span></div><span>Everything half price this weekend only, while stocks last.</span><a href=\"/favouriteteam\">Favourite Team</a></div></div></div></div></div>"
+}

@@ -1,0 +1,6 @@
+{
+  "expect": "hidden",
+  "why": "The right-hand rail wraps every section - the ad block, Birthdays, Contacts, Group chats - in one element. The ad block goes; this checks the ad block itself.",
+  "card": "<div role=\"complementary\" style=\"width:360px\"><div><div><div><div><div class=\"rail-ad\"><div><h3><span>Sponsored</span></h3></div><a href=\"https://shop.example/collection\"><span>Best selling collection</span><span>shop.example</span></a><a href=\"https://tv.example/sport\"><span>Stream the game live</span><span>tv.example</span></a></div><div class=\"birthdays\"><h3>Birthdays</h3><span>A friend and 6 others have birthdays today.</span></div></div><div class=\"contacts\"><h3>Contacts</h3><div><a href=\"https://www.facebook.com/friend.one\"><h3>Friend One</h3></a></div><div><a href=\"https://www.facebook.com/friend.two\"><h3>Friend Two</h3></a></div></div><div class=\"group-chats\"><h3>Group chats</h3><span>Weekend plans</span></div></div><div></div><div></div></div></div></div>",
+  "check": ".rail-ad"
+}

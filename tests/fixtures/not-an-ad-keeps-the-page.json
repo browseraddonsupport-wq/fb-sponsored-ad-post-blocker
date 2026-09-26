@@ -1,0 +1,13 @@
+{
+  "expect": "visible",
+  "why": "The lasting version of Show: it writes the page into the keep list, and a fresh copy of the post - as after a reload, when nothing remembers the click - is not hidden. It used to be offered only on posts the shape rule hid, and the keep list only consulted by that rule, so a labelled post the user knew was wrong could not be kept at all.",
+  "settings": {
+    "placeholderMode": true
+  },
+  "clickKeep": true,
+  "reload": true,
+  "check": ".ad",
+  "recorded": "someshop",
+  "recordedKey": "keepPages",
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"ad\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\">Some Shop</a><span>Sponsored</span></div><span>Everything half price this weekend only, while stocks last.</span></div></div></div></div></div>"
+}

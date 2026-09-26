@@ -318,15 +318,30 @@ function classifyLabel(el) {
 
 // --- Post container resolution ----------------------------------------------
 
-// Given an ancestor landmark, returns the direct child of that landmark
-// that contains `label` — i.e. the individual post/card/widget boundary,
-// for layouts where posts aren't wrapped in role="article".
-function climbToChildOf(label, landmark) {
+// The right-hand rail is a stack of sections - the ad block, Birthdays,
+// Contacts, Group chats - each under its own heading. Facebook wraps the whole
+// stack in one element, so "the rail's child that holds the label" is the
+// entire column, chat list and all. Climb from the label instead, and stop
+// before the step that would take in a heading from another section.
+//
+// A label inside a heading ("Sponsored") owns that heading. One that is not -
+// a single ad inside the block - takes the first heading it meets, provided it
+// is the only one there, so the climb still reaches the whole ad block rather
+// than stopping at one ad under a visible "Sponsored".
+const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+
+function railSectionFor(label, rail) {
+  let own = label.closest(HEADING_SELECTOR);
+  if (own && !rail.contains(own)) own = null;
   let node = label;
-  while (node.parentElement && node.parentElement !== landmark) {
-    node = node.parentElement;
+  while (node.parentElement && node.parentElement !== rail) {
+    const parent = node.parentElement;
+    const others = Array.from(parent.querySelectorAll(HEADING_SELECTOR)).filter((h) => h !== own);
+    if (others.length > 1 || (others.length === 1 && own)) break;
+    if (others.length === 1) own = others[0];
+    node = parent;
   }
-  return node.parentElement === landmark ? node : null;
+  return node;
 }
 
 // A "Follow"/"Join" button only means "a Page or Group you don't follow" when it
@@ -549,7 +564,7 @@ function findPostContainer(label, reason) {
   // "unfollowed", which is about feed posts, so this fallback skips that reason.
   if (reason !== "unfollowed") {
     const rail = label.closest('[role="complementary"]');
-    if (rail) return climbToChildOf(label, rail);
+    if (rail) return railSectionFor(label, rail);
   }
 
   // Last resort: no landmark anywhere above the label. Some cards carry no
@@ -729,6 +744,10 @@ function includeByline(node) {
 
 // The whole post, as far as it can safely be found.
 function wholePost(node) {
+  // A rail section is already the whole thing. Both widenings below are built
+  // for feed cards, and in the 360-wide rail nothing they measure stops them:
+  // looking for a byline, they would climb into Contacts' profile links.
+  if (node.closest('[role="complementary"]')) return node;
   return includeByline(expandToCard(node));
 }
 
@@ -823,10 +842,33 @@ function wasOpenedOnPurpose(container) {
   return false;
 }
 
+// Posts the user has asked to see, by clicking Show. Every rule runs again on
+// every scan, so without this a revealed post was hidden again moments later by
+// the same label that hid it the first time. Held only while the post is on the
+// page (pruneRemovedPosts lets go of the rest); the keep list is what lasts.
+const shownByUser = new Set();
+
+function wasShownByUser(container) {
+  for (const el of shownByUser) {
+    if (el === container || el.contains(container) || container.contains(el)) return true;
+  }
+  return false;
+}
+
 function hidePost(container, reason, label, via) {
   if (isPostReason(reason)) container = wholePost(container);
   if (isPostReason(reason) && wasOpenedOnPurpose(container)) {
     openedPostsSpared += 1;
+    return;
+  }
+  // Asked for, either just now or for good. Checked here rather than per rule
+  // so that no rule - label, shape or unfollowed - can overrule the user. The
+  // one exception is the user again: "This is an ad" is the latest word.
+  if (via === "marked") {
+    for (const el of shownByUser) {
+      if (el === container || el.contains(container) || container.contains(el)) shownByUser.delete(el);
+    }
+  } else if (isPostReason(reason) && (wasShownByUser(container) || isKeptAuthor(container))) {
     return;
   }
   const originalDisplay = container.style.display || "";
@@ -848,28 +890,31 @@ function hidePost(container, reason, label, via) {
     btn.type = "button";
     btn.className = "fbsb-show-btn";
     btn.textContent = "Show";
-    btn.addEventListener("click", () => restorePost(container));
+    btn.addEventListener("click", () => {
+      shownByUser.add(container);
+      restorePost(container);
+    });
 
     placeholder.appendChild(label);
     placeholder.appendChild(btn);
 
-    // Only the shape rule can be wrong about a post, so only its placeholders
-    // offer this. It names the page rather than this one post, because a post
-    // id does not survive a reload and a page name does.
-    if (via === "shape") {
-      const page = pageNameFor(container);
-      if (page) {
-        const keep = document.createElement("button");
-        keep.type = "button";
-        keep.className = "fbsb-show-btn fbsb-keep-btn";
-        keep.textContent = "Not an ad";
-        keep.title = "Never hide posts from " + page;
-        keep.addEventListener("click", () => {
-          addToPageList("keepPages", page);
-          restorePost(container);
-        });
-        placeholder.appendChild(keep);
-      }
+    // Show lasts until the post leaves the page. This lasts: it puts the page
+    // on the keep list, which every rule honours. It names the page rather than
+    // this one post, because a post id does not survive a reload and a page
+    // name does.
+    const page = pageNameFor(container);
+    if (page) {
+      const keep = document.createElement("button");
+      keep.type = "button";
+      keep.className = "fbsb-show-btn fbsb-keep-btn";
+      keep.textContent = reason === "sponsored" ? "Not an ad" : "Always show";
+      keep.title = "Never hide posts from " + page;
+      keep.addEventListener("click", () => {
+        shownByUser.add(container);
+        addToPageList("keepPages", page);
+        restorePost(container);
+      });
+      placeholder.appendChild(keep);
     }
     container.insertAdjacentElement("beforebegin", placeholder);
   }
@@ -879,7 +924,7 @@ function hidePost(container, reason, label, via) {
 
   const hide = applyHide(container);
   hide.marker.dataset.fbsbHidden = reason;
-  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label, hide });
+  hiddenPosts.set(container, { reason, originalDisplay, placeholder, label, hide, via: via || "label" });
   if (isPostReason(reason)) reportCount(1);
 }
 
@@ -1070,6 +1115,9 @@ function pruneRemovedPosts(now) {
     if (info.placeholder) info.placeholder.remove();
     hiddenPosts.delete(container);
     hiddenPostsPruned += 1;
+  }
+  for (const el of shownByUser) {
+    if (!el.isConnected) shownByUser.delete(el);
   }
 }
 
@@ -1950,6 +1998,15 @@ function isKeptPage(card) {
   return cardOnList(card, pageSet(settings.keepPages));
 }
 
+// Stricter than isKeptPage, for every rule but the shape rule: the post is BY a
+// kept page, not merely linking to one. An ad that tags a page you keep is still
+// somebody else's ad.
+function isKeptAuthor(card) {
+  if (!(settings.keepPages || "").trim()) return false;
+  const page = pageNameFor(card);
+  return !!page && pageSet(settings.keepPages).has(page.toLowerCase());
+}
+
 function isAdPage(card) {
   return cardOnList(card, pageSet(settings.adPages));
 }
@@ -2304,6 +2361,12 @@ function scheduleScan(root) {
 // for, and only if that comes up empty is the post restored - restoring on every
 // mutation un-hid ads permanently, since nothing rescans a restored container.
 function stillQualifies(container, info) {
+  // The shape rule and "This is an ad" hide posts that carry no label, so the
+  // label test below always failed for them and any mutation inside - a video
+  // loading - gave the ad back until the next sweep. Ask what put them there.
+  if (info.via === "shape" || info.via === "marked") {
+    return hasOutboundLink(container) || hasAdCallToAction(container);
+  }
   if (info.label.isConnected && container.contains(info.label) && classifyLabel(info.label)) {
     return true;
   }
@@ -2311,6 +2374,21 @@ function stillQualifies(container, info) {
     if (classifyLabel(el)) return true;
   }
   return false;
+}
+
+// A label can be missing for a moment - Facebook re-rendering the post, a video
+// player rebuilding itself - and that moment is all stillQualifies sees. Nothing
+// else would look at the post again, because the label's own element never
+// changed, so an ad given back that way stayed up. Look again shortly after:
+// an ad is hidden again, and a truly recycled or emptied node finds nothing.
+const RECHECK_AFTER_RESTORE_MS = [1000, 3000];
+
+function recheckLater(container) {
+  for (const delay of RECHECK_AFTER_RESTORE_MS) {
+    setTimeout(() => {
+      if (container.isConnected && !hiddenPosts.has(container)) scheduleScan(container);
+    }, delay);
+  }
 }
 
 const observer = new MutationObserver((mutations) => {
@@ -2337,6 +2415,7 @@ const observer = new MutationObserver((mutations) => {
       if (info && !stillQualifies(staleContainer, info)) {
         if (DEBUG) console.log("[fbsb] recycled node detected, clearing stale hide:", staleContainer);
         restorePost(staleContainer);
+        recheckLater(staleContainer);
       }
     }
     // Removals carry the label too, and often only the removal does. Facebook can
@@ -2477,7 +2556,9 @@ browser.storage.onChanged.addListener((changes, area) => {
     settings.keepPages = changes.keepPages.newValue;
     // Give back anything now named in the list, without waiting for a reload.
     for (const [container, info] of hiddenPosts) {
-      if (info.reason === "sponsored" && isKeptPage(container)) restorePost(container);
+      if (!isPostReason(info.reason)) continue;
+      const kept = info.via === "shape" ? isKeptPage(container) : isKeptAuthor(container);
+      if (kept) restorePost(container);
     }
   }
   if (changes.adPages) {

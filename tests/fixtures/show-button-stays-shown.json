@@ -1,0 +1,9 @@
+{
+  "expect": "visible",
+  "why": "Show on a placeholder has to mean it. The label that hid the post is still in it, so the next scan hid it again a moment later and Show did nothing that lasted. A post the user revealed stays revealed while it is on the page, whatever the rules make of it.",
+  "settings": {
+    "placeholderMode": true
+  },
+  "clickShow": true,
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"ad\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\">Some Shop</a><span>Sponsored</span></div><span>Everything half price this weekend only, while stocks last.</span></div></div></div></div></div>"
+}

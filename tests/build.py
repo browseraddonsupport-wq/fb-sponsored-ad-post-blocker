@@ -214,6 +214,50 @@ CONTENT_JS
       scanRoot(elsewhere);
     }
 
+    // The placeholder's buttons, pressed as a person would, then every rule run
+    // again - which is what the next scan does anyway. Show used to last only
+    // until then: the label that hid the post was still there, and hid it again.
+    // `reload` swaps in a fresh copy of the card, as a page reload does, so only
+    // what was written to the keep list can spare it; assert with `check`, since
+    // the card captured above is gone.
+    if (f.clickShow || f.clickKeep) {
+      var press = sandbox.querySelector(f.clickKeep ? ".fbsb-keep-btn" : ".fbsb-show-btn:not(.fbsb-keep-btn)");
+      if (!press) throw new Error("no " + (f.clickKeep ? "keep" : "Show") + " button on the placeholder");
+      press.click();
+      if (f.reload) host.innerHTML = f.card;
+      lastSweepAt = 0;
+      scanRoot(host);
+    }
+
+    // A label that goes missing for a moment inside a post already hidden. The
+    // text is blanked and restored in place - a change the observer does not
+    // report - while something else is added to the post, which it does. That
+    // addition makes the extension re-check the hide, and at that moment there
+    // is no label: the ad is given back, and nothing used to look at it again.
+    // Needs `waitMs` past the re-check.
+    // Something changes inside a post the shape rule hid - a video loading.
+    // The sweep is held off, and so are the scans still queued from building
+    // this card: either one re-hides the ad whatever the re-check decides, so
+    // with them free to run this passed on the code it was written against.
+    // The question is whether the hide is dropped in the first place.
+    // One tick later, so the observer has queued those scans before they are
+    // dropped.
+    if (f.mutateAfterHide) {
+      var inside = card || host;
+      setTimeout(function () {
+        pendingRoots.clear();
+        inside.appendChild(document.createElement("div"));
+        lastSweepAt = performance.now();
+      }, 0);
+    }
+
+    if (f.labelBlinks) {
+      var blink = host.querySelector("[data-blink]").firstChild;
+      blink.data = "";
+      (card || host).appendChild(document.createElement("div"));
+      setTimeout(function () { blink.data = f.labelBlinks; }, 0);
+    }
+
   }
 
   function buildAndCheck(f) {
@@ -291,7 +335,7 @@ CONTENT_JS
       // with an empty advertiser list: the page name was read from inside the
       // picture, which holds no link to the page.
       if (ok && f.recorded) {
-        var written = (window.__written.adPages || "");
+        var written = (window.__written[f.recordedKey || "adPages"] || "");
         if (written.toLowerCase().indexOf(f.recorded.toLowerCase()) === -1) {
           ok = false;
           got += ", recorded " + JSON.stringify(written) + " not " + JSON.stringify(f.recorded);
@@ -303,7 +347,7 @@ CONTENT_JS
       if (!ok) lines.push("<span class='why'>" + f.why + "</span>");
       out.innerHTML = lines.join(NL);
       next();
-    }, 120);
+    }, f.waitMs || 120);
   }
   next();
 })();

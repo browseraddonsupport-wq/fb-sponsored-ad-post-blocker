@@ -1,0 +1,7 @@
+{
+  "expect": "hidden",
+  "why": "An ad already hidden whose label is missing for a moment - Facebook re-rendering it, a video player rebuilding - while something else in it changes. The extension re-checks a hidden post whenever it changes, to let go of nodes Facebook reuses for other content, and at that moment found no label and gave the ad back. The label's own element never changed, so nothing looked again and the ad stayed up. Seen live: a video ad, labelled three ways, left in the feed. It is now looked at again a second later.",
+  "labelBlinks": "Sponsored",
+  "waitMs": 1400,
+  "card": "<div aria-posinset=\"1\"><div><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\">Some Shop</a><span data-blink=\"1\">Sponsored</span></div><span>A short video about this season's new range.</span></div></div></div></div></div>"
+}

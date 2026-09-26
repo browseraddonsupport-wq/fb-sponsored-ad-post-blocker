@@ -1,0 +1,7 @@
+{
+  "expect": "hidden",
+  "why": "An ad the shape rule hid, with something changing inside it afterwards - a video loading. A hidden post is re-checked whenever it changes, by looking for the label that hid it, and a shape-rule hide has no label: every change gave the ad back, and it flashed up until the next sweep hid it again, up to half a second later. It is now re-checked against what put it there: a link off Facebook or an ad button.",
+  "mutateAfterHide": true,
+  "waitMs": 200,
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\">Some Shop</a><span>&middot;</span><span><span></span></span></div><a href=\"https://shop.example/new-range\"><span>SHOP.EXAMPLE</span></a><span>A short video about this season's new range, out now in every size.</span></div></div></div>"
+}

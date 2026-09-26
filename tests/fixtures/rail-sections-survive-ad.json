@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "why": "GUARD ON THE GUARD. Same rail: hiding its ad block must not take Birthdays, Contacts and Group chats with it. The rail's only child is the whole column, so 'the rail child holding the label' hid everything; Birthdays sits right beside the ad block, so it is the strictest thing to check. The climb now stops before it would take in another section's heading.",
+  "card": "<div role=\"complementary\" style=\"width:360px\"><div><div><div><div><div class=\"rail-ad\"><div><h3><span>Sponsored</span></h3></div><a href=\"https://shop.example/collection\"><span>Best selling collection</span><span>shop.example</span></a><a href=\"https://tv.example/sport\"><span>Stream the game live</span><span>tv.example</span></a></div><div class=\"birthdays\"><h3>Birthdays</h3><span>A friend and 6 others have birthdays today.</span></div></div><div class=\"contacts\"><h3>Contacts</h3><div><a href=\"https://www.facebook.com/friend.one\"><h3>Friend One</h3></a></div><div><a href=\"https://www.facebook.com/friend.two\"><h3>Friend Two</h3></a></div></div><div class=\"group-chats\"><h3>Group chats</h3><span>Weekend plans</span></div></div><div></div><div></div></div></div></div>",
+  "check": ".birthdays"
+}
