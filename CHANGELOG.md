@@ -111,11 +111,11 @@ the report: `partial` on 1.1.85, hidden — and the page name recorded — on
 
 ### Fixed
 
-- **A post you opened on purpose is never hidden now.** Reported 2026-09-23: a
-  friend shared a post from a buy-and-sell group in Messenger, and opening it
-  showed nothing. The post carries a "Join" button, so the unfollowed rule hid
-  it inside the very viewer that had just been clicked into — and the only way
-  to read it was to switch that rule off for everything.
+- **A post you opened on purpose is never hidden now.** Opening a post shared
+  in chat could show nothing: a post from a group you haven't joined carries a
+  "Join" button, so the unfollowed rule hid it inside the very viewer that had
+  just been clicked into — and the only way to read it was to switch that rule
+  off for everything.
 
   Every rule here exists to curate a feed nobody chose. None of them should get
   a say over a post somebody did. So there is now one check that every rule
