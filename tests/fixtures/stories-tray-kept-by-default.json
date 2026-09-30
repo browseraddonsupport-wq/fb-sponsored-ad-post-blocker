@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "check": ".stories-block",
+  "why": "GUARD. Stories, Reels and People you may know are not ads, and the switches for them are off unless the user turns them on.",
+  "card": "<div class=\"stories-block\"><div><div role=\"region\" aria-label=\"Stories\"><div role=\"grid\" aria-label=\"stories tray\"><a href=\"/stories/create/\" aria-label=\"Create story\">Create story</a><a href=\"/stories/111/\" aria-label=\"A friend's story\">A friend</a><a href=\"/stories/222/\" aria-label=\"Another friend's story\">Another friend</a></div></div></div></div>"
+}

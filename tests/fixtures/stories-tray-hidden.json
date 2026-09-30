@@ -1,0 +1,9 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "hideStories": true
+  },
+  "check": ".stories-block",
+  "why": "The Stories switch. The tray is a region labelled 'Stories' inside wrappers that hold nothing else; they go with it, so no empty frame or margin is left where it was.",
+  "card": "<div class=\"stories-block\"><div><div role=\"region\" aria-label=\"Stories\"><div role=\"grid\" aria-label=\"stories tray\"><a href=\"/stories/create/\" aria-label=\"Create story\">Create story</a><a href=\"/stories/111/\" aria-label=\"A friend's story\">A friend</a><a href=\"/stories/222/\" aria-label=\"Another friend's story\">Another friend</a></div></div></div></div>"
+}

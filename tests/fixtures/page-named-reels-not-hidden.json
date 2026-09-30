@@ -1,0 +1,8 @@
+{
+  "expect": "visible",
+  "settings": {
+    "hideReels": true
+  },
+  "why": "GUARD ON THE GUARD. A heading is not enough on its own - a Page or a post could be called 'Reels'. The item must also hold what the heading promises: at least two reels.",
+  "card": "<div aria-posinset=\"3\"><div><div class=\"reels\" style=\"width:680px;height:500px\"><a href=\"/reelsphotography\">Reels Photography</a><h3>Reels</h3><a href=\"/reel/100/\"><span>Reel 0</span></a></div></div></div>"
+}

@@ -1,0 +1,10 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "hideReels": true
+  },
+  "mutateAfterHide": true,
+  "waitMs": 200,
+  "why": "Facebook re-renders these blocks in place. A hidden item is re-checked when it changes, and a section has no ad label to find - so without its own test, every re-render gave the carousel back until the next sweep.",
+  "card": "<div aria-posinset=\"3\"><div><div class=\"reels\" style=\"width:680px;height:500px\"><h3>Reels</h3><a href=\"/reel/100/\"><span>Reel 0</span></a><a href=\"/reel/101/\"><span>Reel 1</span></a><a href=\"/reel/102/\"><span>Reel 2</span></a></div></div></div>"
+}

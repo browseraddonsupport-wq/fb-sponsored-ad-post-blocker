@@ -49,6 +49,11 @@ const DEFAULT_SETTINGS = {
   // other two lists get filled in, and easily switched off once they are.
   showMarkers: true,
   placeholderMode: false,
+  // Whole feed sections rather than posts. OFF by default: they are not ads,
+  // and plenty of people want them. Desktop only for now - see sweepSections.
+  hideStories: false,
+  hideReels: false,
+  hidePeopleYouMayKnow: false,
 };
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -635,8 +640,12 @@ function reportCount(delta) {
 // place would be more intrusive than the thing it replaced, and it isn't a
 // post, so counting it would make the badge overstate what was filtered.
 // Both of those are the only ways it differs from a hidden post.
+//
+// Feed sections - the stories tray, the Reels carousel, "People you may know" -
+// are not posts either, for the same reasons: no placeholder, no badge count,
+// and none of the widening meant for a feed post.
 function isPostReason(reason) {
-  return reason !== "appbanner";
+  return reason === "sponsored" || reason === "suggested" || reason === "unfollowed";
 }
 
 // How a post is taken out of the feed differs by layout, for a measured reason.
@@ -2309,8 +2318,116 @@ function sweepUnlabeledAds(root) {
   }
 }
 
+// --- Feed sections: stories, Reels, People you may know ----------------------
+//
+// Three whole blocks of the feed people asked to be able to switch off. None is
+// an ad, so each has its own setting, off by default.
+//
+//   Stories - a region labelled "Stories" above the feed. Hidden with the
+//     single-child wrappers around it, up to the feed column, so no empty frame
+//     or margin is left behind.
+//   Reels, People you may know - feed items whose own heading says exactly that.
+//     A heading alone is not enough - a Page could be called "Reels" - so each
+//     must also hold what the heading promises: reel links, or friend
+//     suggestions.
+//
+// Desktop only. The phone site is a different app with none of these
+// landmarks, and nothing here has been measured against it.
+const STORIES_SELECTOR = '[role="region"][aria-label="Stories"]';
+const SECTION_HEADINGS = {
+  reels: new Set(["Reels", "Reels and short videos"]),
+  pymk: new Set(["People you may know", "People You May Know"]),
+};
+const SECTION_SETTING = { stories: "hideStories", reels: "hideReels", pymk: "hidePeopleYouMayKnow" };
+const MIN_REEL_LINKS = 2;
+const SECTION_MAX_CLIMB = 10;
+// The whole document is looked at on a timer as well as each changed subtree:
+// a heading can arrive before the reels it introduces, and the scan of that
+// subtree then turns it down - nothing else would look at the item again.
+const SECTION_SWEEP_INTERVAL_MS = 1000;
+let lastSectionSweepAt = 0;
+
+function anySectionWanted() {
+  return settings.hideStories || settings.hideReels || settings.hidePeopleYouMayKnow;
+}
+
+function sectionReasonForHeading(heading) {
+  const text = (heading.textContent || "").trim();
+  for (const [reason, texts] of Object.entries(SECTION_HEADINGS)) {
+    if (texts.has(text)) return reason;
+  }
+  return null;
+}
+
+// Whether a feed item really is the section its heading names.
+function holdsSection(card, reason) {
+  if (reason === "reels") return card.querySelectorAll('a[href*="/reel/"]').length >= MIN_REEL_LINKS;
+  if (reason === "pymk") return !!card.querySelector('a[href*="/friends/suggestions"]');
+  return false;
+}
+
+// From the stories region up through wrappers that hold nothing else, stopping
+// before the feed column - the first parent with other children, or noticeably
+// wider.
+function storiesBlock(region) {
+  let node = region;
+  for (let i = 0; i < SECTION_MAX_CLIMB; i++) {
+    const parent = node.parentElement;
+    if (!parent || parent === document.body || parent.childElementCount !== 1) break;
+    if (parent.getBoundingClientRect().width > node.getBoundingClientRect().width * DESKTOP_CARD_WIDTH_JUMP) break;
+    node = parent;
+  }
+  return node;
+}
+
+// For stillQualifies: is this still the section that was hidden? Facebook
+// re-renders these blocks in place, and without this every re-render gave one
+// back until the next sweep.
+function sectionStillThere(container, reason) {
+  if (reason === "stories") return !!container.querySelector(STORIES_SELECTOR);
+  for (const h of container.querySelectorAll(HEADING_SELECTOR)) {
+    if (sectionReasonForHeading(h) === reason) return true;
+  }
+  return false;
+}
+
+function hideSection(container, reason, label) {
+  if (hiddenPosts.has(container) || container.closest("[data-fbsb-hidden]")) return;
+  if (container.closest('[role="dialog"]')) return;
+  hidePost(container, reason, label, "section");
+}
+
+function sweepSections(root) {
+  if (isMobileLayout() || !anySectionWanted() || !root.querySelectorAll) return;
+  const scopes = [root];
+  const now = performance.now();
+  if (now - lastSectionSweepAt >= SECTION_SWEEP_INTERVAL_MS && document.body && root !== document.body) {
+    lastSectionSweepAt = now;
+    scopes.push(document.body);
+  }
+  for (const scope of scopes) {
+    if (settings.hideStories) {
+      for (const region of scope.querySelectorAll(STORIES_SELECTOR)) {
+        hideSection(storiesBlock(region), "stories", region);
+      }
+    }
+    if (settings.hideReels || settings.hidePeopleYouMayKnow) {
+      for (const h of scope.querySelectorAll(HEADING_SELECTOR)) {
+        const reason = sectionReasonForHeading(h);
+        if (!reason || !settings[SECTION_SETTING[reason]]) continue;
+        const card = h.closest("[aria-posinset]");
+        if (!card || !holdsSection(card, reason)) continue;
+        hideSection(card, reason, h);
+      }
+    }
+  }
+}
+
 function scanRoot(root) {
-  if (!settings.hideSponsored && !settings.hideSuggested && !settings.hideUnfollowed) return;
+  if (
+    !settings.hideSponsored && !settings.hideSuggested && !settings.hideUnfollowed &&
+    !anySectionWanted()
+  ) return;
   if (root.nodeType !== Node.ELEMENT_NODE) return;
 
   const startedAt = performance.now();
@@ -2323,6 +2440,7 @@ function scanRoot(root) {
     found.forEach(processLabel);
   }
   sweepUnlabeledAds(root);
+  sweepSections(root);
   pruneRemovedPosts(startedAt);
 
   const finishedAt = performance.now();
@@ -2367,6 +2485,7 @@ function stillQualifies(container, info) {
   if (info.via === "shape" || info.via === "marked") {
     return hasOutboundLink(container) || hasAdCallToAction(container);
   }
+  if (info.via === "section") return sectionStillThere(container, info.reason);
   if (info.label.isConnected && container.contains(info.label) && classifyLabel(info.label)) {
     return true;
   }
@@ -2551,6 +2670,12 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
   if (changes.placeholderMode) {
     settings.placeholderMode = changes.placeholderMode.newValue;
+  }
+  for (const [reason, key] of Object.entries(SECTION_SETTING)) {
+    if (!changes[key]) continue;
+    settings[key] = changes[key].newValue;
+    if (!settings[key]) restoreByReason(reason);
+    else shouldRescan = true;
   }
   if (changes.keepPages) {
     settings.keepPages = changes.keepPages.newValue;

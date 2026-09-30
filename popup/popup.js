@@ -12,6 +12,9 @@ const DEFAULT_SETTINGS = {
   adPages: "",
   showMarkers: true,
   placeholderMode: false,
+  hideStories: false,
+  hideReels: false,
+  hidePeopleYouMayKnow: false,
 };
 
 const hideSponsoredEl = document.getElementById("hideSponsored");
@@ -56,6 +59,9 @@ const CHECKBOXES = {
   hideUnlabeledAds: hideUnlabeledAdsEl,
   showMarkers: showMarkersEl,
   placeholderMode: placeholderModeEl,
+  hideStories: document.getElementById("hideStories"),
+  hideReels: document.getElementById("hideReels"),
+  hidePeopleYouMayKnow: document.getElementById("hidePeopleYouMayKnow"),
 };
 const TEXTAREAS = { keepPages: keepPagesEl, adPages: adPagesEl };
 const ALL_CONTROLS = [...Object.values(CHECKBOXES), ...Object.values(TEXTAREAS)];

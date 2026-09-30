@@ -52,6 +52,14 @@ h2 {
   color: var(--muted);
 }
 
+.h2-note {
+  margin-left: 4px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
+}
+
 /* Deliberately the loudest thing in the popup: while this is showing, the
    extension is doing nothing at all, and every other control is moot. */
 .permission {

@@ -52,7 +52,18 @@ window.browser = {
              onChanged: { addListener: function(){} } }
 };
 window.__written = {};
-window.__FIXTURES__ = FIXTURES_JSON;
+// A hidden page runs no animation frames, and scheduleScan waits for one. With
+// the harness open in a background tab or a collapsed pane, every fixture that
+// depends on a scheduled scan failed - and passed again once it was on screen.
+// A short timer stands in only while hidden, so a visible run is unchanged.
+(function () {
+  var raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function (cb) {
+    if (!document.hidden) return raf(cb);
+    return setTimeout(function () { cb(performance.now()); }, 16);
+  };
+})();
+window.__FIXTURES__ =FIXTURES_JSON;
 </script>
 <script>
 CONTENT_JS

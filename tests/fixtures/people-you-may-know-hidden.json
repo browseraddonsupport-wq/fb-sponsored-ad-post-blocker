@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "hidePeopleYouMayKnow": true
+  },
+  "why": "The People you may know switch: a feed item with that heading and friend suggestions in it.",
+  "card": "<div aria-posinset=\"4\"><div><div class=\"pymk\" style=\"width:680px;height:420px\"><h3>People you may know</h3><a href=\"/friends/suggestions/?profile_id=1\"><span>A person</span></a><div role=\"button\">Add friend</div><a href=\"/friends/suggestions/?profile_id=2\"><span>Another person</span></a><div role=\"button\">Add friend</div></div></div></div>"
+}

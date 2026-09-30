@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "hideReels": true
+  },
+  "why": "The Reels switch: a feed item headed 'Reels' holding a row of reels.",
+  "card": "<div aria-posinset=\"3\"><div><div class=\"reels\" style=\"width:680px;height:500px\"><h3>Reels</h3><a href=\"/reel/100/\"><span>Reel 0</span></a><a href=\"/reel/101/\"><span>Reel 1</span></a><a href=\"/reel/102/\"><span>Reel 2</span></a></div></div></div>"
+}
