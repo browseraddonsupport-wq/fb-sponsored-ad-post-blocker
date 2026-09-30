@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.89
+
+### Added
+
+- **Switches for Stories, Reels and People you may know.** A new "Feed
+  sections" group in the popup can hide any of them:
+  - **Stories** — the row of stories at the top of the feed. The frame around
+    it goes too, so no gap is left behind.
+  - **Reels** — the Reels carousel in the feed.
+  - **People you may know** — the friend-suggestions block in the feed.
+
+  All three are off unless you turn them on, since none of them is an ad.
+  Reels and People you may know are only hidden when the block really holds
+  reels or friend suggestions, so a post or Page that merely has "Reels" in
+  its title is left alone. A hidden section stays hidden when Facebook redraws
+  it, and switching one back off brings it straight back.
+
+  For now these work on a computer only; Facebook's phone site is built
+  differently.
+
+### Verified
+
+63 automated tests pass, seven of them new: each section hidden when its
+switch is on and kept when it is off, a Page called "Reels" left alone, and a
+hidden section surviving a redraw. On a live feed, each rule picked out
+exactly its section and nothing else. The test page also runs correctly now
+when it is not on screen.
+
 ## 1.1.88
 
 ### Fixed
