@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.1.90
+
+### Added
+
+- **"This is NOT an ad".** With the "This is an ad" buttons switched on, a
+  second button now sits beside it over a post's picture. Clicking it puts the
+  post's Page on "Always show these Pages", and from then on nothing hides that
+  Page's posts — no rule, not even a "Sponsored" label — after reloads and on
+  later visits too. The post you clicked is left alone straight away, even when
+  its Page can't be worked out.
+
+### Changed
+
+- The two buttons now correct each other. "This is NOT an ad" takes the Page
+  off "Always treat these Pages as ads", and "This is an ad" takes it off
+  "Always show these Pages". Before, a Page could end up on both lists, where
+  "always show" quietly won and the later click seemed to do nothing.
+- The buttons over pictures and the "Show" placeholders now match Facebook's
+  own light or dark mode, whichever you have chosen there. In dark mode they
+  were pale grey and hard to read.
+
+### Fixed
+
+- On posts with several photos, the buttons appeared over the poster's name
+  instead of the picture. Facebook draws those photos larger than their tile
+  and crops the rest; the buttons now go by the part you can see.
+
+### Verified
+
+67 automated tests pass, four of them new, and each fails without its change:
+a Page marked "NOT an ad" stays visible after a reload even when its post is
+labelled Sponsored, each button takes the Page off the other list, and the
+buttons sit on the visible part of a cropped photo.
+
 ## 1.1.89
 
 ### Added
