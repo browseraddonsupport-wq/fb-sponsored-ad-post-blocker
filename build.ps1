@@ -21,7 +21,15 @@
 # mistaken for a release, and are not for daily use: the logs hold live DOM
 # references and with devtools open the browser retains and renders every one.
 
-param([switch]$Diagnostic)
+param(
+    [switch]$Diagnostic,
+    # Where a diagnostic build also leaves an unpacked Chromium copy. "Load
+    # unpacked" takes a folder, never a zip, and a browser keeps loading from
+    # the folder it was pointed at - so this is outside dist/, which every run
+    # deletes, and stays put between builds: reload the extension and it has
+    # the new code.
+    [string]$UnpackedDir = (Join-Path $env:USERPROFILE "fbsb-chrome-debug")
+)
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
@@ -126,8 +134,32 @@ function Assert-NoSvgIcons($dir, $label) {
 }
 Assert-NoSvgIcons $cr "chrome"
 
+if ($Diagnostic) {
+    # Emptied and refilled rather than deleted, so a browser holding the path
+    # open does not lose it. Only ever a folder of its own: refuse anything
+    # that is not plainly this build's output.
+    $resolvedRoot = (Resolve-Path $root).Path.TrimEnd('\')
+    $full = [System.IO.Path]::GetFullPath($UnpackedDir).TrimEnd('\')
+    if ($full.Length -lt 4 -or $full -eq $resolvedRoot -or $resolvedRoot.StartsWith($full + '\') -or $full -eq $env:USERPROFILE.TrimEnd('\')) {
+        throw "refusing to use '$full' for the unpacked build"
+    }
+    if (Test-Path $full) {
+        $existing = Join-Path $full "manifest.json"
+        if ((Get-ChildItem $full -Force | Measure-Object).Count -gt 0 -and -not (Test-Path $existing)) {
+            throw "'$full' has files in it but no manifest.json - not overwriting a folder that is not an unpacked build"
+        }
+        Get-ChildItem $full -Force | Remove-Item -Recurse -Force
+    } else {
+        New-Item -ItemType Directory -Force $full | Out-Null
+    }
+    Copy-Item "$cr\*" $full -Recurse
+}
+
 Write-Output "built $version$(if ($Diagnostic) { ' (DEBUG enabled)' })"
 Write-Output "  AMO / Firefox      -> fb-sponsored-ad-post-blocker$suffix.zip   (dist/firefox)"
 Write-Output "  Chrome Web Store   -> fb-sponsored-ad-post-blocker-chrome$suffix.zip   (dist/chrome)"
+if ($Diagnostic) {
+    Write-Output "  Load unpacked      -> $([System.IO.Path]::GetFullPath($UnpackedDir))   (reload the extension to pick it up)"
+}
 Write-Output "  Upload the -chrome zip to the Chrome Web Store. The other one has an SVG"
 Write-Output "  icon and Chromium rejects it with 'Could not decode image: icon.svg'."
