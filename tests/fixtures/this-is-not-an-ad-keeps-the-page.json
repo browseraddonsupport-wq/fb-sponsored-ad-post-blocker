@@ -1,0 +1,13 @@
+{
+  "expect": "visible",
+  "check": ".post",
+  "settings": {
+    "showMarkers": true
+  },
+  "markNotAd": true,
+  "recorded": "somepage",
+  "recordedKey": "keepPages",
+  "cardAfter": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:700px\"><div><a href=\"/somepage\">Some Page</a><span>Sponsored</span><span>&middot;</span></div><span>Our new opening hours start next week, see you all there.</span><a href=\"/photo/?fbid=777\"><img style=\"width:630px;height:450px;display:block\"></a></div></div></div>",
+  "why": "'This is NOT an ad', over a post's picture, puts its page on the keep list - and from then on nothing hides that page, not even a post of theirs Facebook labels Sponsored. Checked on a fresh post after the click, as after a reload, when only the list remembers.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:700px\"><div><a href=\"/somepage\">Some Page</a><span>&middot;</span></div><span>Our new opening hours start next week, see you all there.</span><a href=\"/photo/?fbid=777\"><img style=\"width:630px;height:450px;display:block\"></a></div></div></div>"
+}

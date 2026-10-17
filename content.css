@@ -2,6 +2,46 @@
   display: none !important;
 }
 
+/* Colours follow the theme the user picked in Facebook, not the system's:
+   Facebook marks its root with __fb-dark-mode or __fb-light-mode, and that is
+   what the page around these elements is drawn in. Only if it carries neither
+   - a renamed class, say - does the system setting decide. Set on our own
+   elements; nothing of Facebook's is written to. */
+.fbsb-placeholder,
+#fbsb-mark-bar {
+  --fbsb-panel: #f0f2f5;
+  --fbsb-chip: rgba(255, 255, 255, 0.92);
+  --fbsb-line: #dadde1;
+  --fbsb-text: #65676b;
+  --fbsb-accent: #1877f2;
+  --fbsb-accent-wash: rgba(24, 119, 242, 0.1);
+  --fbsb-hover-wash: rgba(0, 0, 0, 0.05);
+}
+
+html.__fb-dark-mode .fbsb-placeholder,
+html.__fb-dark-mode #fbsb-mark-bar {
+  --fbsb-panel: #3a3b3c;
+  --fbsb-chip: rgba(36, 37, 38, 0.92);
+  --fbsb-line: #4e5052;
+  --fbsb-text: #b0b3b8;
+  --fbsb-accent: #2d88ff;
+  --fbsb-accent-wash: rgba(45, 136, 255, 0.15);
+  --fbsb-hover-wash: rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.__fb-dark-mode):not(.__fb-light-mode) .fbsb-placeholder,
+  html:not(.__fb-dark-mode):not(.__fb-light-mode) #fbsb-mark-bar {
+    --fbsb-panel: #3a3b3c;
+    --fbsb-chip: rgba(36, 37, 38, 0.92);
+    --fbsb-line: #4e5052;
+    --fbsb-text: #b0b3b8;
+    --fbsb-accent: #2d88ff;
+    --fbsb-accent-wash: rgba(45, 136, 255, 0.15);
+    --fbsb-hover-wash: rgba(255, 255, 255, 0.08);
+  }
+}
+
 .fbsb-placeholder {
   display: flex;
   align-items: center;
@@ -9,12 +49,12 @@
   gap: 8px;
   margin: 8px 0;
   padding: 10px 14px;
-  background: #f0f2f5;
-  border: 1px solid #dadde1;
+  background: var(--fbsb-panel);
+  border: 1px solid var(--fbsb-line);
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.3;
-  color: #65676b;
+  color: var(--fbsb-text);
   font-family: Helvetica, Arial, sans-serif;
 }
 
@@ -23,47 +63,52 @@
   padding: 4px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #1877f2;
+  color: var(--fbsb-accent);
   background: transparent;
-  border: 1px solid #1877f2;
+  border: 1px solid var(--fbsb-accent);
   border-radius: 6px;
   cursor: pointer;
 }
 
 .fbsb-show-btn:hover {
-  background: rgba(24, 119, 242, 0.1);
+  background: var(--fbsb-accent-wash);
 }
 
-/* The in-feed "This is an ad" control. Fixed to the viewport and parented to
-   <body>, never to a Facebook subtree - see the note in content.js. Sits above
-   the feed but below Facebook's own dialogs, which run well past 1000. */
-#fbsb-mark {
+/* The in-feed "This is an ad" / "This is NOT an ad" control. Fixed to the
+   viewport and parented to <body>, never to a Facebook subtree - see the note
+   in content.js. Sits above the feed but below Facebook's own dialogs, which
+   run well past 1000. */
+#fbsb-mark-bar {
   position: fixed;
   z-index: 900;
+  gap: 6px;
+}
+
+.fbsb-mark-btn {
   padding: 3px 9px;
   font-family: Helvetica, Arial, sans-serif;
   font-size: 12px;
   font-weight: 600;
-  color: #65676b;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #dadde1;
+  color: var(--fbsb-text);
+  background: var(--fbsb-chip);
+  border: 1px solid var(--fbsb-line);
   border-radius: 6px;
   cursor: pointer;
   opacity: 0.45;
   transition: opacity 120ms ease;
 }
 
-#fbsb-mark:hover {
+.fbsb-mark-btn:hover {
   opacity: 1;
-  color: #1877f2;
-  border-color: #1877f2;
+  color: var(--fbsb-accent);
+  border-color: var(--fbsb-accent);
 }
 
 .fbsb-keep-btn {
-  color: #65676b;
-  border-color: #dadde1;
+  color: var(--fbsb-text);
+  border-color: var(--fbsb-line);
 }
 
 .fbsb-keep-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--fbsb-hover-wash);
 }

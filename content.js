@@ -975,14 +975,16 @@ function releaseHiddenAround(dialog) {
   }
 }
 
-// The in-feed "This is an ad" control.
+// The in-feed "This is an ad" / "This is NOT an ad" control.
 //
-// One button, appended to <body> and positioned over whichever card the
-// pointer is on. Deliberately NOT injected into the card: writing into feed
+// One small bar holding both buttons, appended to <body> and positioned over
+// whichever card the pointer is on. Deliberately NOT injected into the card: writing into feed
 // children is what stalls Facebook's pager on mobile, and every piece of UI
 // added to a Facebook subtree is a hostage to the next markup change. A single
 // fixed-position element that only reads geometry cannot do either.
 const MARKER_ID = "fbsb-mark";
+const NOT_AD_ID = "fbsb-not-ad";
+const MARKER_BAR_ID = "fbsb-mark-bar";
 let markerEl = null;
 let markerCard = null;
 
@@ -1011,11 +1013,34 @@ let markerMedia = null;
 const MARKER_MEDIA_MIN_WIDTH = 200;
 const MARKER_MEDIA_MIN_HEIGHT = 150;
 
+// The part of a picture you can actually see. Facebook draws photo-grid images
+// larger than their tile and crops the rest with an overflow-hidden frame, so
+// the image's own box starts well above what is on screen - by 54px on a live
+// grid - and the buttons placed from it landed on the poster's name instead of
+// the picture. Trimmed by every clipping frame between the image and the card.
+function visibleRect(media, card) {
+  const r = media.getBoundingClientRect();
+  let left = r.left, top = r.top, right = r.right, bottom = r.bottom;
+  const stop = card.parentElement;
+  for (let el = media.parentElement; el && el !== stop; el = el.parentElement) {
+    const cs = getComputedStyle(el);
+    if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+    const er = el.getBoundingClientRect();
+    left = Math.max(left, er.left);
+    top = Math.max(top, er.top);
+    right = Math.min(right, er.right);
+    bottom = Math.min(bottom, er.bottom);
+  }
+  return { left, top, right, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+}
+
 function mainMediaOf(card) {
   let best = null;
   let bestArea = 0;
   for (const m of card.querySelectorAll("img, video")) {
-    const r = m.getBoundingClientRect();
+    const raw = m.getBoundingClientRect();
+    if (raw.width < MARKER_MEDIA_MIN_WIDTH || raw.height < MARKER_MEDIA_MIN_HEIGHT) continue;
+    const r = visibleRect(m, card);
     if (r.width < MARKER_MEDIA_MIN_WIDTH || r.height < MARKER_MEDIA_MIN_HEIGHT) continue;
     if (r.width * r.height > bestArea) {
       best = m;
@@ -1031,36 +1056,64 @@ function hideMarker() {
   if (markerEl) markerEl.style.display = "none";
 }
 
-function ensureMarker() {
-  if (markerEl) return markerEl;
-  markerEl = document.createElement("button");
-  markerEl.type = "button";
-  markerEl.id = MARKER_ID;
-  markerEl.textContent = "This is an ad";
-  markerEl.style.display = "none";
-  markerEl.addEventListener("click", (e) => {
+function markerButton(id, text, onPick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = id;
+  btn.className = "fbsb-mark-btn";
+  btn.textContent = text;
+  btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!markerCard) return;
     const card = markerCard;
-    const page = pageNameFor(card);
     hideMarker();
-    // Hide the post whether or not its page could be named: the click asked
-    // for this ad to go, and a page with no readable name is no reason to
-    // leave it standing.
-    if (page) addToPageList("adPages", page);
-    if (!hiddenPosts.has(card)) hidePost(card, "sponsored", card, "marked");
+    onPick(card, pageNameFor(card));
   });
+  return btn;
+}
+
+// Two answers to one question, side by side. markerEl is the bar that holds
+// them; the buttons keep their own ids.
+function ensureMarker() {
+  if (markerEl) return markerEl;
+  markerEl = document.createElement("div");
+  markerEl.id = MARKER_BAR_ID;
+  markerEl.style.display = "none";
+  markerEl.appendChild(
+    markerButton(MARKER_ID, "This is an ad", (card, page) => {
+      // Hide the post whether or not its page could be named: the click asked
+      // for this ad to go, and a page with no readable name is no reason to
+      // leave it standing.
+      if (page) {
+        removeFromPageList("keepPages", page);
+        addToPageList("adPages", page);
+      }
+      if (!hiddenPosts.has(card)) hidePost(card, "sponsored", card, "marked");
+    })
+  );
+  markerEl.appendChild(
+    markerButton(NOT_AD_ID, "This is NOT an ad", (card, page) => {
+      // This post at once, whatever its page; the page from now on, which is
+      // what lasts - a post cannot be recognised again after a reload. Every
+      // rule honours the keep list, so nothing hides that page's posts again.
+      shownByUser.add(card);
+      if (page) {
+        removeFromPageList("adPages", page);
+        addToPageList("keepPages", page);
+      }
+    })
+  );
   document.body.appendChild(markerEl);
   return markerEl;
 }
 
 function positionMarkerOver(card, media) {
   const el = ensureMarker();
-  const r = media.getBoundingClientRect();
+  const r = visibleRect(media, card);
   markerCard = card;
   markerMedia = media;
-  el.style.display = "block";
+  el.style.display = "flex";
   el.style.top = Math.max(4, r.top + 8) + "px";
   el.style.left = r.left + 8 + "px";
 }
@@ -1075,7 +1128,7 @@ document.addEventListener(
   "mouseover",
   (e) => {
     if (!markerEnabled()) return;
-    if (markerEl && e.target === markerEl) return;
+    if (markerEl && markerEl.contains(e.target)) return;
     const inner = feedCardUnder(e.target);
     if (!inner || inner.closest("[data-fbsb-hidden]") || inner.closest('[role="dialog"]')) {
       hideMarker();
@@ -1091,7 +1144,7 @@ document.addEventListener(
       hideMarker();
       return;
     }
-    const r = media.getBoundingClientRect();
+    const r = visibleRect(media, card);
     const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     if (!over) {
       hideMarker();
@@ -1969,16 +2022,21 @@ function profileIdOf(a) {
 
 // "/SomePage", "SomePage", "facebook.com/SomePage" all mean the same thing to
 // someone typing it in, so accept all of them.
+function normalisePageName(raw) {
+  let name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+/, "");
+  const pid = /^profile\.php\?(?:[^#]*&)?id=(\d+)/i.exec(name);
+  // A pasted address usually carries ?ref=... or similar, which is not part
+  // of the page's name and would otherwise make it match nothing.
+  name = pid ? "profile.php?id=" + pid[1] : name.split(/[?#]/)[0];
+  name = name.replace(/\/+$/, "").toLowerCase();
+  return name && !RESERVED_PATHS.has(name) ? name : "";
+}
+
 function pageSet(value) {
   const out = new Set();
   for (const raw of (value || "").split(/[\n,]/)) {
-    let name = raw.trim().replace(/^https?:\/\/[^/]*/i, "").replace(/^\/+/, "");
-    const pid = /^profile\.php\?(?:[^#]*&)?id=(\d+)/i.exec(name);
-    // A pasted address usually carries ?ref=... or similar, which is not part
-    // of the page's name and would otherwise make it match nothing.
-    name = pid ? "profile.php?id=" + pid[1] : name.split(/[?#]/)[0];
-    name = name.replace(/\/+$/, "").toLowerCase();
-    if (name && !RESERVED_PATHS.has(name)) out.add(name);
+    const name = normalisePageName(raw);
+    if (name) out.add(name);
   }
   return out;
 }
@@ -2064,6 +2122,20 @@ function addToPageList(key, name) {
   const current = settings[key] || "";
   if (pageSet(current).has(name.toLowerCase())) return;
   const next = current.trim() ? current.trim() + "\n" + name : name;
+  settings[key] = next;
+  browser.storage.local.set({ [key]: next });
+}
+
+// The other half of a correction. Marking a page one way takes it off the
+// opposite list: on both, "always show" quietly wins, and the click that said
+// otherwise would seem to do nothing.
+function removeFromPageList(key, name) {
+  const current = settings[key] || "";
+  const target = name.toLowerCase();
+  const lines = current.split(/[\n,]/);
+  const kept = lines.filter((raw) => normalisePageName(raw) !== target);
+  if (kept.length === lines.length) return;
+  const next = kept.map((s) => s.trim()).filter(Boolean).join("\n");
   settings[key] = next;
   browser.storage.local.set({ [key]: next });
 }

@@ -1,0 +1,14 @@
+{
+  "expect": "visible",
+  "check": ".post",
+  "settings": {
+    "showMarkers": true,
+    "adPages": "somepage"
+  },
+  "markNotAd": true,
+  "cleared": {
+    "adPages": "somepage"
+  },
+  "why": "A page marked as an advertiser and then marked as not one comes off the advertiser list. On both lists, one click would appear to have done nothing.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:700px\"><div><a href=\"/somepage\">Some Page</a><span>&middot;</span></div><span>Our new opening hours start next week, see you all there.</span><a href=\"/photo/?fbid=777\"><img style=\"width:630px;height:450px;display:block\"></a></div></div></div>"
+}

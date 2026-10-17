@@ -1,0 +1,9 @@
+{
+  "expect": "visible",
+  "settings": {
+    "showMarkers": true
+  },
+  "markerInside": true,
+  "why": "Facebook draws photo-grid pictures larger than their tile and crops the overflow, so a picture's own box starts above what is on screen - 54px above it on a live grid. The buttons were placed from that box and landed on the poster's name. They must sit on the part of the picture you can see.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:700px\"><div style=\"height:60px\"><a href=\"/somepage\">Some Page</a><span>&middot;</span></div><span>Four photos from the weekend market, more on our page.</span><div class=\"clip\" style=\"width:630px;height:330px;overflow:hidden\"><a href=\"/photo/?fbid=888\"><img style=\"width:630px;height:440px;margin-top:-55px;display:block\"></a></div></div></div></div>"
+}

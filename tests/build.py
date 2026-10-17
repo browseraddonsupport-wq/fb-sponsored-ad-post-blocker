@@ -189,7 +189,10 @@ CONTENT_JS
     // a lead-form ad never links off Facebook and so the shape rule never
     // looks at it. A fixture that let the sweep hide the card as well proved
     // nothing: the first draft of it passed on the code it was written for.
-    if (f.markAsAd) {
+    // "This is NOT an ad" the same way, on a post that is showing. `cardAfter`
+    // then swaps in a fresh post from the same page - as a reload would, when
+    // nothing remembers the click - so only the keep list can spare it.
+    if (f.markAsAd || f.markNotAd || f.markerInside) {
       var pic = null, area = 0;
       host.querySelectorAll("img, video").forEach(function (m) {
         var mr = m.getBoundingClientRect();
@@ -200,8 +203,27 @@ CONTENT_JS
         pic.dispatchEvent(new MouseEvent("mouseover", {
           bubbles: true, clientX: pr.left + pr.width / 2, clientY: pr.top + pr.height / 2
         }));
-        var btn = document.getElementById("fbsb-mark");
-        if (btn && btn.style.display !== "none") btn.click();
+        var bar = document.getElementById("fbsb-mark-bar");
+        var btn = document.getElementById(f.markNotAd ? "fbsb-not-ad" : "fbsb-mark");
+        // The bar, where there is one: since 1.1.90 the buttons sit in it and
+        // only the bar is shown and hidden.
+        var shown = bar ? bar.style.display !== "none" : btn && btn.style.display !== "none";
+        // Where the buttons were placed, against the part of the picture that
+        // is actually visible - the `.clip` frame cropping it. Read from the
+        // bar's own top: the harness does not load content.css, so the bar is
+        // not fixed-position here and its box says nothing.
+        if (f.markerInside) {
+          var clip = host.querySelector(".clip").getBoundingClientRect();
+          var barTop = bar ? parseFloat(bar.style.top) : NaN;
+          window.__markerOk = shown && barTop >= clip.top && barTop <= clip.bottom;
+          window.__markerWhere = "buttons at " + Math.round(barTop) + ", picture visible from " + Math.round(clip.top);
+        }
+        if (btn && shown && (f.markAsAd || f.markNotAd)) btn.click();
+      }
+      if (f.cardAfter) {
+        host.innerHTML = f.cardAfter;
+        lastSweepAt = 0;
+        scanRoot(host);
       }
     }
 
@@ -350,6 +372,21 @@ CONTENT_JS
         if (written.toLowerCase().indexOf(f.recorded.toLowerCase()) === -1) {
           ok = false;
           got += ", recorded " + JSON.stringify(written) + " not " + JSON.stringify(f.recorded);
+        }
+      }
+      if (ok && f.markerInside && !window.__markerOk) {
+        ok = false;
+        got += ", " + (window.__markerWhere || "buttons never shown");
+      }
+      // And what the click took off the other list: `cleared` names a list and
+      // the page that must have been written out of it.
+      if (ok && f.cleared) {
+        for (var ck in f.cleared) {
+          var after = window.__written[ck];
+          if (after === undefined || after.toLowerCase().indexOf(f.cleared[ck].toLowerCase()) !== -1) {
+            ok = false;
+            got += ", " + ck + " still " + JSON.stringify(after === undefined ? settings[ck] : after);
+          }
         }
       }
       if (ok) { pass++; } else { fail++; }

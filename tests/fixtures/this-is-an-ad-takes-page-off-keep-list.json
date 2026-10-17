@@ -1,0 +1,14 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "showMarkers": true,
+    "keepPages": "somepage"
+  },
+  "markAsAd": true,
+  "recorded": "somepage",
+  "cleared": {
+    "keepPages": "somepage"
+  },
+  "why": "The reverse: 'This is an ad' on a page the keep list protects hides the post and takes the page off the keep list. Left on it, 'always show' would win after a reload and the ad would be back.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:700px\"><div><a href=\"/somepage\">Some Page</a><span>&middot;</span></div><span>Our new opening hours start next week, see you all there.</span><a href=\"/photo/?fbid=777\"><img style=\"width:630px;height:450px;display:block\"></a></div></div></div>"
+}
