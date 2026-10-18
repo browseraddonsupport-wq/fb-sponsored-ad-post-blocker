@@ -268,6 +268,16 @@ CONTENT_JS
     // addition makes the extension re-check the hide, and at that moment there
     // is no label: the ad is given back, and nothing used to look at it again.
     // Needs `waitMs` past the re-check.
+    // Two rules settling on different elements of one post: `hideTwice` names
+    // the order, and `placeholders` how many placeholders may result.
+    if (f.hideTwice) {
+      var inner = host.querySelector(".inner"), outer = host.querySelector(".outer");
+      var order = f.hideTwice === "inner-first" ? [inner, outer] : [outer, inner];
+      // As the shape rule hides: its re-check looks for what put the post
+      // there, a link off Facebook, which a hide by fiat would not have.
+      order.forEach(function (el) { if (!hiddenPosts.has(el)) hidePost(el, "sponsored", el, "shape"); });
+    }
+
     // Something changes inside a post the shape rule hid - a video loading.
     // The sweep is held off, and so are the scans still queued from building
     // this card: either one re-hides the ad whatever the re-check decides, so
@@ -372,6 +382,24 @@ CONTENT_JS
         if (written.toLowerCase().indexOf(f.recorded.toLowerCase()) === -1) {
           ok = false;
           got += ", recorded " + JSON.stringify(written) + " not " + JSON.stringify(f.recorded);
+        }
+      }
+      if (ok && f.placeholders !== undefined) {
+        var count = sandbox.querySelectorAll(".fbsb-placeholder").length;
+        var tracked = 0;
+        hiddenPosts.forEach(function (info, el) { if (host.contains(el)) tracked++; });
+        if (count !== f.placeholders || tracked !== f.placeholders) {
+          ok = false;
+          got += ", " + count + " placeholders, " + tracked + " hides tracked";
+        }
+      }
+      // Who the placeholder says the hidden post is from.
+      if (ok && f.placeholderSays !== undefined) {
+        var who = sandbox.querySelector(".fbsb-ph-who");
+        var said = who ? who.textContent : null;
+        if (said !== f.placeholderSays) {
+          ok = false;
+          got += ", placeholder names " + JSON.stringify(said);
         }
       }
       if (ok && f.markerInside && !window.__markerOk) {

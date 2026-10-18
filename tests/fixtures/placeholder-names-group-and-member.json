@@ -1,0 +1,9 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "placeholderMode": true
+  },
+  "placeholderSays": "Weekend Market Traders · A Member",
+  "why": "A group post names the group and the member who posted in it, so the user can tell a group they meant to join from one they did not.",
+  "card": "<div aria-posinset=\"3\"><div><div class=\"grp\" style=\"width:680px;height:500px\"><div><a href=\"/groups/12345/\"><svg><image></image></svg></a><a href=\"/groups/12345/user/678/\"><svg><image></image></svg></a><h3><a href=\"/groups/12345/\">Weekend Market Traders</a></h3><span>&middot;</span><div role=\"button\">Join</div><a href=\"/groups/12345/user/678/\"><span>A Member</span></a></div><span>Anyone know where the Saturday stalls moved to this month?</span></div></div></div>"
+}

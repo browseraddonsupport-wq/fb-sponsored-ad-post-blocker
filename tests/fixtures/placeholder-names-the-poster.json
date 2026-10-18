@@ -1,0 +1,9 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "placeholderMode": true
+  },
+  "placeholderSays": "Some Shop",
+  "why": "With the Show placeholder on, it says who the hidden post is from, so a wrong hide can be spotted without clicking Show. The poster's picture link comes first and reads 'Online status indicator Active' when an active dot sits on it; the name is the link in the heading.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"ad\" style=\"width:680px;height:500px\"><div><a href=\"/someshop\" aria-label=\"Some Shop\"><svg><image></image></svg><span>Online status indicator</span><span>Active</span></a><h3><a href=\"/someshop\"><span>Some Shop</span></a></h3><span>Sponsored</span></div><span>Everything half price this weekend only, while stocks last.</span></div></div></div>"
+}

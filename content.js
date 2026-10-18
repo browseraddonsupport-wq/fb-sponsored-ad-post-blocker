@@ -864,6 +864,28 @@ function wasShownByUser(container) {
   return false;
 }
 
+// The poster's name under the reason. Often not readable the moment a post is
+// hidden - Facebook fills the byline in a beat after the card appears - so look
+// again a little later while the placeholder is still on the page. A hidden
+// post's text can still be read; it only has no box.
+const POSTER_NAME_RETRY_MS = [1000, 3000];
+
+function fillPosterName(el, container) {
+  const set = () => {
+    const name = posterNameFor(container);
+    if (!name) return false;
+    el.textContent = name;
+    el.title = name;
+    return true;
+  };
+  if (set()) return;
+  for (const delay of POSTER_NAME_RETRY_MS) {
+    setTimeout(() => {
+      if (el.isConnected && !el.textContent) set();
+    }, delay);
+  }
+}
+
 function hidePost(container, reason, label, via) {
   if (isPostReason(reason)) container = wholePost(container);
   if (isPostReason(reason) && wasOpenedOnPurpose(container)) {
@@ -880,6 +902,20 @@ function hidePost(container, reason, label, via) {
   } else if (isPostReason(reason) && (wasShownByUser(container) || isKeptAuthor(container))) {
     return;
   }
+  // One post, one hide. Two rules can settle on different elements of the
+  // same post - one the whole card, one a block inside it - and hiding both
+  // counted the post twice, and left a second placeholder inside it that
+  // turned up, with part of the post still hidden, the moment the user
+  // clicked Show. Inside one already hidden: nothing to do. Around ones
+  // already hidden: take them over.
+  if (isPostReason(reason)) {
+    for (const [other, info] of hiddenPosts) {
+      if (other !== container && other.contains(container) && isPostReason(info.reason)) return;
+    }
+    for (const [other, info] of hiddenPosts) {
+      if (other !== container && container.contains(other) && isPostReason(info.reason)) restorePost(other);
+    }
+  }
   const originalDisplay = container.style.display || "";
   let placeholder = null;
 
@@ -893,7 +929,14 @@ function hidePost(container, reason, label, via) {
       unfollowed: "Unfollowed page's post hidden",
     };
     const label = document.createElement("span");
-    label.textContent = PLACEHOLDER_TEXT[reason] || "Post hidden";
+    label.className = "fbsb-ph-text";
+    const why = document.createElement("span");
+    why.textContent = PLACEHOLDER_TEXT[reason] || "Post hidden";
+    const who = document.createElement("span");
+    who.className = "fbsb-ph-who";
+    label.appendChild(why);
+    label.appendChild(who);
+    fillPosterName(who, container);
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -2080,26 +2123,88 @@ function isAdPage(card) {
 
 // Which page a card belongs to, for writing into one of those lists: the first
 // link that names somebody, whether an advertiser's own page or a group.
-function pageNameFor(card) {
-  for (const a of card.querySelectorAll("a[href]")) {
-    // <shop>.com/<product> has the path "/<product>", which reads exactly
-    // like a page name. It is somebody else's website.
-    if (isOutboundLink(a)) continue;
-    const path = linkPath(a);
-    if (!path || path === "/") continue;
-    const segments = path.replace(/^\/+|\/+$/g, "").split("/");
-    const first = (segments[0] || "").toLowerCase();
-    if (first === "groups" && segments[1]) return "groups/" + segments[1];
-    if (first === "profile.php") {
-      const id = profileIdOf(a);
-      if (id) return "profile.php?id=" + id;
-      continue;
-    }
-    if (segments.length === 1 && first && !RESERVED_PATHS.has(first) && !/^\d+$/.test(first)) {
-      return segments[0];
-    }
+function pageNameOfLink(a) {
+  // <shop>.com/<product> has the path "/<product>", which reads exactly
+  // like a page name. It is somebody else's website.
+  if (isOutboundLink(a)) return null;
+  const path = linkPath(a);
+  if (!path || path === "/") return null;
+  const segments = path.replace(/^\/+|\/+$/g, "").split("/");
+  const first = (segments[0] || "").toLowerCase();
+  if (first === "groups" && segments[1]) return "groups/" + segments[1];
+  if (first === "profile.php") {
+    const id = profileIdOf(a);
+    return id ? "profile.php?id=" + id : null;
+  }
+  if (segments.length === 1 && first && !RESERVED_PATHS.has(first) && !/^\d+$/.test(first)) {
+    return segments[0];
   }
   return null;
+}
+
+function pageNameFor(card) {
+  for (const a of card.querySelectorAll("a[href]")) {
+    const name = pageNameOfLink(a);
+    if (name) return name;
+  }
+  return null;
+}
+
+// Who a hidden post is from, as the user would read it - "Some Page", not
+// "somepage" - for its placeholder, so a wrong hide can be spotted without
+// clicking Show. The poster's links come in pairs: the profile picture first,
+// often with no text, or with the label of an "active" dot over it, then the
+// name. So prefer a link in the post's heading, then any without a picture in
+// it, and only then a link's own label. A group post names the group and the
+// person who posted in it. Read with textContent and written back the same
+// way, so nothing in a name can become markup.
+const POSTER_NAME_MAX = 80;
+const POSTER_HEADING_SUFFIX_RE = /\s*(·\s*(Follow|Join)|Verified account)\s*$/i;
+
+function readableText(el) {
+  return (el.textContent || "").replace(INVISIBLE_CHARS_RE, "").replace(/\s+/g, " ").trim();
+}
+
+function bestLinkName(links) {
+  const usable = (t) => t && t.length <= POSTER_NAME_MAX;
+  const pictured = (a) => !!a.querySelector("img, svg, image");
+  for (const a of links) {
+    if (a.closest("h1, h2, h3, h4, h5, h6") && !pictured(a) && usable(readableText(a))) return readableText(a);
+  }
+  for (const a of links) {
+    if (!pictured(a) && usable(readableText(a))) return readableText(a);
+  }
+  for (const a of links) {
+    const label = (a.getAttribute("aria-label") || "").trim();
+    if (usable(label)) return label;
+  }
+  return "";
+}
+
+function posterNameFor(card) {
+  const page = pageNameFor(card);
+  if (page) {
+    const links = Array.from(card.querySelectorAll("a[href]")).filter((a) => pageNameOfLink(a) === page);
+    if (page.startsWith("groups/")) {
+      const member = (a) => /\/user\//.test(linkPath(a));
+      const group = bestLinkName(links.filter((a) => !member(a)));
+      const person = bestLinkName(links.filter(member));
+      if (group && person) return group + " · " + person;
+      if (group || person) return group || person;
+    } else {
+      const name = bestLinkName(links);
+      if (name) return name;
+    }
+  }
+  // Some posts carry no usable link at all; their heading still names them,
+  // with Facebook's own extras on the end.
+  const heading = card.querySelector("h2, h3, h4");
+  if (heading) {
+    let text = readableText(heading);
+    while (POSTER_HEADING_SUFFIX_RE.test(text)) text = text.replace(POSTER_HEADING_SUFFIX_RE, "");
+    if (text && text.length <= POSTER_NAME_MAX && !SPONSORED_TEXTS.has(text) && !SUGGESTED_TEXTS.has(text)) return text;
+  }
+  return "";
 }
 
 function hasAdCallToAction(card) {

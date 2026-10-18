@@ -1,0 +1,11 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "placeholderMode": true,
+    "hideUnlabeledAds": false
+  },
+  "hideTwice": "outer-first",
+  "placeholders": 1,
+  "why": "The whole post was hidden first, then a block inside it. The second hide is skipped: the block is already out of sight, and hiding it again counted the post twice and left a placeholder that appeared inside the post once Show was clicked.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"outer\" style=\"width:680px;height:600px\"><div><a href=\"/someshop\">Some Shop</a><span>&middot;</span></div><span>Everything half price this weekend only, while stocks last.</span><div class=\"inner\" style=\"width:500px;height:400px\"><a href=\"/someshop\">Some Shop</a><span>New season range, in every size.</span><a href=\"https://shop.example/new\">SHOP.EXAMPLE</a></div></div></div></div>"
+}
