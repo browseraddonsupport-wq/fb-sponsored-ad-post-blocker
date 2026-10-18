@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.91
+
+### Added
+
+- **Hidden-post placeholders say who the post is from.** With "Display a
+  'Show' button to reveal hidden posts" on, each placeholder now shows the
+  name of the person, Page or Group under the reason it was hidden, so you
+  can tell at a glance whether it should have been hidden without clicking
+  Show. Group posts show the group and the member who posted. Long names are
+  shortened, with the full name shown when you point at it. If Facebook has
+  not filled in the name yet when the post is hidden, the placeholder looks
+  again a moment later.
+
+### Fixed
+
+- **Some posts were hidden twice.** Two rules could settle on different parts
+  of the same post, so it counted twice towards "posts hidden", and a second
+  placeholder sat inside it — clicking Show revealed the post with part of it
+  still hidden behind another "post hidden" bar. Each post is now hidden once.
+
+### Verified
+
+71 automated tests pass, four of them new, and all four fail on 1.1.90: a
+Page's name read from its post heading rather than the "active" label on its
+profile picture, a group post naming both the group and the member, and one
+hide per post whichever part was hidden first. On a live feed every hidden
+post was named correctly.
+
 ## 1.1.90
 
 ### Added
