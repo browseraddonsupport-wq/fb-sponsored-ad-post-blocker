@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.93
+
+### Changed
+
+- **A safety net under every rule.** Whichever rule finds an ad, the extension
+  now refuses to hide anything that is, or holds, the page's main area, feed
+  or navigation, or that is wider than a feed post on a computer. If the part
+  it settled on is too big, it hides the post-sized card inside it around the
+  label, or nothing. Both page-wide bugs so far — the right-hand column and
+  Marketplace categories — would have been stopped by this alone. Suggested by
+  a contributor in a fork of the project. Diagnostics counts what it refused.
+
+### Added
+
+- **Spanish, Portuguese, French, German, Indonesian, Arabic and Hungarian.**
+  The ad label in each language, read off a live feed with Facebook set to it,
+  now counts — but only where Facebook puts the label, after the poster's
+  name, so post text or a Page's name never does. Their Follow/Join buttons, Stories, Reels
+  and People you may know headings, and how they write a post's age now work
+  too; the last keeps real posts that share a link from being taken for ads.
+  English is unchanged, except that its label is now read as "Sponsored ·" as
+  well, the way Facebook writes it on some ads.
+
+### Verified
+
+86 automated tests pass, thirteen of them new: neither a wide page column nor
+the main page area is ever hidden, labels in English and other languages, a
+foreign ad word in post text, a Page name or Facebook's Hungarian footer link
+ignored, Hungarian's Follow button, and posts kept by their age in Spanish,
+Arabic and Hungarian. On a live English feed afterwards, ads were hidden as
+before and nothing wider than a post was. The test page no longer depends on
+being on screen to run scheduled scans.
+
 ## 1.1.92
 
 ### Fixed
