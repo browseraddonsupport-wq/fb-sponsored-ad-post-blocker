@@ -538,7 +538,48 @@ function climbToCard(label) {
   return best;
 }
 
+// Marketplace is a grid of listing tiles, not a feed. Sponsored tiles sit in it
+// like any other, and the feed's last-resort climb - outward until the width
+// jumps - went straight past the tile to the whole results grid: one ad hid
+// every listing in a category. There, an ad is its own tile: the element just
+// below the grid, a parent with many cells, real listings among them. The
+// other rules are about feed posts and have nothing to do on Marketplace.
+const MARKETPLACE_PATH_RE = /^\/marketplace(\/|$)/;
+const MARKETPLACE_GRID_MIN_CELLS = 6;
+const MARKETPLACE_GRID_MIN_LISTINGS = 2;
+const MARKETPLACE_MAX_CLIMB = 25;
+
+function isMarketplacePage() {
+  return MARKETPLACE_PATH_RE.test(currentUrl().pathname);
+}
+
+function isListingGrid(el) {
+  if (el.childElementCount < MARKETPLACE_GRID_MIN_CELLS) return false;
+  let listings = 0;
+  for (const cell of el.children) {
+    if (cell.querySelector('a[href*="/marketplace/item/"]') && ++listings >= MARKETPLACE_GRID_MIN_LISTINGS) return true;
+  }
+  return false;
+}
+
+function marketplaceTileFor(label) {
+  let node = label;
+  for (let i = 0; i < MARKETPLACE_MAX_CLIMB; i++) {
+    const parent = node.parentElement;
+    if (!parent || parent === document.body) return null;
+    if (isListingGrid(parent)) return node;
+    node = parent;
+  }
+  return null;
+}
+
 function findPostContainer(label, reason) {
+  // Before the layout split: the tile test reads listing links, not geometry,
+  // so it holds on the phone site too, where a grid hidden whole is just as
+  // broken. The "Open app" bar is page chrome and keeps its own handling.
+  if (isMarketplacePage() && reason !== "appbanner") {
+    return reason === "sponsored" ? marketplaceTileFor(label) : null;
+  }
   if (isMobileLayout()) return findMobilePostContainer(label, reason);
 
   const feedPost = label.closest('[role="article"], [data-pagelet^="FeedUnit"]');
@@ -2419,6 +2460,8 @@ let lastSweepAt = 0;
 
 function sweepUnlabeledAds(root) {
   if (!settings.hideSponsored) return;
+  // Feed cards only, and Marketplace has none - see isMarketplacePage.
+  if (isMarketplacePage()) return;
   // Two things run through here: the shape rule, which infers, and pages the
   // user has marked, which is a decision. Only the first answers to the
   // "Hide ads Facebook doesn't label" switch - that switch exists because
@@ -2575,7 +2618,7 @@ function hideSection(container, reason, label) {
 }
 
 function sweepSections(root) {
-  if (isMobileLayout() || !anySectionWanted() || !root.querySelectorAll) return;
+  if (isMobileLayout() || !anySectionWanted() || !root.querySelectorAll || isMarketplacePage()) return;
   const scopes = [root];
   const now = performance.now();
   if (now - lastSectionSweepAt >= SECTION_SWEEP_INTERVAL_MS && document.body && root !== document.body) {

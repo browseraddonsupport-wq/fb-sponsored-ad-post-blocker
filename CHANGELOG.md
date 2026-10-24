@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.92
+
+### Fixed
+
+- **Marketplace categories showed nothing.** Opening a category such as
+  Vehicles left a single "Sponsored post hidden" bar where the listings should
+  be. The results include sponsored tiles, and to hide one the extension
+  looked for the post around it the way it does in the feed — outward until
+  the page column — which on Marketplace is the whole grid of results. On
+  Marketplace a sponsored tile is now hidden on its own, and the listings
+  around it stay. The rules meant for feed posts (suggested posts, Pages you
+  don't follow, ads Facebook doesn't label, feed sections) no longer run on
+  Marketplace at all. Listings you open are left alone, as before.
+
+### Verified
+
+73 automated tests pass, two of them new: a sponsored tile hidden alone, and
+the listings beside it kept. The second fails on 1.1.91 exactly as reported.
+On a live Vehicles search, each sponsored tile resolved to that one tile and
+nothing else.
+
 ## 1.1.91
 
 ### Added
