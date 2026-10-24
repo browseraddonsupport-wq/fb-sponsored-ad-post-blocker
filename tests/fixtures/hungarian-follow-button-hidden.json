@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "Hungarian's Follow button reads 'Követem' - which looks like 'I follow', so it had to be checked: the same Page showed 'Follow' with Facebook in English. A Page you do not follow, its button beside the poster's name.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><h2>Some Page</h2><span>&middot;</span><div role=\"button\">Követem</div></div><span>6 órája</span><span>Nézd meg a videót a végéig, az utolsó rész a legjobb.</span></div></div></div>"
+}

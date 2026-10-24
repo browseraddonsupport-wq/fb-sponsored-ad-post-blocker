@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "The Hungarian ad label, 'Hirdetés ·', read off a live feed with Facebook set to Hungarian, in the line under the poster's name.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:500px\"><div><div><h3><a href=\"/somepage\">Some Page</a></h3></div><div><div><div><div><span>Hirdetés ·</span><span>Some Page</span></div></div></div></div></div><div><span>Our new season range is in store from this weekend, with something for everyone.</span></div></div></div></div>"
+}

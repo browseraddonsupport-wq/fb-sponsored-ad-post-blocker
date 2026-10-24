@@ -52,15 +52,21 @@ window.browser = {
              onChanged: { addListener: function(){} } }
 };
 window.__written = {};
-// A hidden page runs no animation frames, and scheduleScan waits for one. With
-// the harness open in a background tab or a collapsed pane, every fixture that
-// depends on a scheduled scan failed - and passed again once it was on screen.
-// A short timer stands in only while hidden, so a visible run is unchanged.
+// A page that is not being drawn runs no animation frames, and scheduleScan
+// waits for one. With the harness in a background tab or a collapsed pane,
+// every fixture that depends on a scheduled scan failed - and passed again once
+// it was on screen. document.hidden does not always say so: an embedded pane
+// can report "visible" and still draw nothing, and one frame that never came
+// left the scan queue stuck with 1,678 roots in it. So race the frame against
+// a short timer and run the callback once, on whichever comes first.
 (function () {
   var raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = function (cb) {
-    if (!document.hidden) return raf(cb);
-    return setTimeout(function () { cb(performance.now()); }, 16);
+    var done = false;
+    var run = function (t) { if (!done) { done = true; cb(t); } };
+    raf(run);
+    setTimeout(function () { run(performance.now()); }, 50);
+    return 0;
   };
 })();
 window.__FIXTURES__ =FIXTURES_JSON;

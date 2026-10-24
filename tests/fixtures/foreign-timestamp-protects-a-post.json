@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. A post that links off Facebook looks like an ad to the shape rule unless its byline says how old it is - and in Spanish that reads 'hace un día', which the English-only pattern never recognised. ('hace 3 horas' happened to pass, by looking like a date: a word, a space, a number.). Read off a live Spanish feed.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/somepage\">Some Page</a><span>&middot;</span><span aria-labelledby=\"_r_tsx_\"><span></span></span></div><span id=\"_r_tsx_\">hace un día</span><span>Full highlights from the weekend are up now on our site.</span><a href=\"https://www.example.org/highlights\"><span>EXAMPLE.ORG</span></a></div></div></div>"
+}

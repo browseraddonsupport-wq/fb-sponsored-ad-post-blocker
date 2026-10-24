@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "check": ".col",
+  "why": "GUARD. In Hungarian the ad label is also the text of Facebook's own 'Advertising' footer link. A contributor's fork found it hiding a whole profile column. It is not in the label line, so it is never read as a label.",
+  "card": "<div class=\"col\" style=\"width:490px;height:600px\"><h2>Bemutatkozás</h2><div><span>Budapest</span></div><div><a href=\"/business/\">Hirdetés</a><span> · </span><a href=\"/policies/cookies/\">Cookie-k</a><span> · </span><span>Meta © 2026</span></div></div>"
+}

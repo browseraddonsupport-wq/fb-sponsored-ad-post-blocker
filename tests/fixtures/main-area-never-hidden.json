@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "check": ".main-area",
+  "why": "GUARD. Nothing that is, or holds, the page's main area, feed or navigation is ever hidden as a post - even when it happens to be feed-width.",
+  "card": "<div class=\"main-area\" role=\"main\" style=\"width:700px;height:600px\"><div><span>Sponsored</span><span>Everything half price this weekend only, while stocks last.</span></div></div>"
+}

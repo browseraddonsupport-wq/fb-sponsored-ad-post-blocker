@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "FALSE POSITIVE GUARD. The same in Arabic, which writes its own digits: 'منذ ٦ ساعات', read off a live Arabic feed.",
+  "card": "<div><div><div class=\"x1lliihq\" style=\"width:680px;height:500px\"><div><a href=\"/somepage\">Some Page</a><span>&middot;</span><span aria-labelledby=\"_r_tsx_\"><span></span></span></div><span id=\"_r_tsx_\">منذ ٦ ساعات</span><span>Full highlights from the weekend are up now on our site.</span><a href=\"https://www.example.org/highlights\"><span>EXAMPLE.ORG</span></a></div></div></div>"
+}

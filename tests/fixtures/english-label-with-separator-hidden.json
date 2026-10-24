@@ -1,0 +1,5 @@
+{
+  "expect": "hidden",
+  "why": "The label line reads 'Sponsored · Paid for by ...', and the word comes with its separator: the readable label is 'Sponsored ·'. An exact match on 'Sponsored' missed every one; only the shape rule caught these, and only when they linked off Facebook. This one does not.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:500px\"><div><div><h3><a href=\"/somepage\">Some Page</a></h3></div><div><div><div><div><span>Sponsored ·</span><span>Paid for by Some Page</span></div></div></div></div></div><div><span>Our new season range is in store from this weekend, with something for everyone.</span></div></div></div></div>"
+}

@@ -1,0 +1,6 @@
+{
+  "expect": "visible",
+  "check": ".column",
+  "why": "GUARD. Whatever rule settles on an element, a post is never wider than the feed. A 'Sponsored' label in a 900px page column with no post-sized card around it is left alone, rather than the climb taking the column - the way a Marketplace category and the right-hand column were once hidden whole. Proposed in a contributor's fork (issue #1).",
+  "card": "<div class=\"column\" style=\"width:900px;height:600px\"><div><span>Sponsored</span><span>Everything half price this weekend only, while stocks last.</span></div></div>"
+}

@@ -1,0 +1,5 @@
+{
+  "expect": "visible",
+  "why": "GUARD. A foreign ad word only counts where the label goes. A friend's short post that just says 'Publicidad' is post text, not a label: no separator, not in the byline, and its block of text sits the same few levels under the name as a label would - measured on a live feed - so position alone could not tell them apart.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"post\" style=\"width:680px;height:400px\"><div><div><h3><a href=\"/afriend\">A Friend</a></h3></div><div><span>2h</span></div></div><div><div><div><div><div><span>Publicidad</span></div></div></div></div></div></div></div></div>"
+}

@@ -63,10 +63,48 @@ let settings = { ...DEFAULT_SETTINGS };
 // Add more strings here to support other locales.
 const SPONSORED_TEXTS = new Set(["Sponsored", "Ad"]);
 const SUGGESTED_TEXTS = new Set(["Suggested for you", "Suggested for You"]);
+// The ad label in other languages, each read off a live feed with Facebook set
+// to that language (2026-10-24): Spanish, Portuguese (Brazil), French, German,
+// Indonesian. A word only counts where Facebook puts the label - see
+// isForeignAdLabel - so an English feed, where none of these is ever the
+// label, behaves exactly as before. Arabic served no ads to read; Follow,
+// Suggested and the rest stay English-only until they can be read the same way.
+// "Sponsorise" is the same word with its accent stripped, which is how it reads
+// if Facebook sends the accent as a separate combining mark.
+// Hungarian was read the same way, and its word is also the label on Facebook's
+// own "Advertising" footer link - which the position rule turns away, as it
+// does any word outside the label line.
+const FOREIGN_SPONSORED_TEXTS = new Set([
+  "Publicidad", "Patrocinado", "Sponsorisé", "Sponsorise", "Anzeige", "Bersponsor",
+  "Hirdetés", "Hirdetes",
+]);
+
+// The label line reads "Sponsored · Paid for by ..." - the separator comes with
+// the word, in every language checked, and an exact match on "Sponsored" alone
+// missed it. Strip it from either end before matching.
+const LABEL_SEPARATORS_RE = /^[\s·•|]+|[\s·•|]+$/g;
+
+function labelKey(text) {
+  return (text || "").replace(LABEL_SEPARATORS_RE, "");
+}
 // A bare "Follow"/"Join" button next to the poster's name is Facebook's own
 // signal that this is a Page or Group you don't follow/haven't joined —
 // distinct from "Following"/"Joined", which only show once you already do.
-const UNFOLLOWED_TEXTS = new Set(["Follow", "Join"]);
+const UNFOLLOWED_TEXTS = new Set([
+  "Follow", "Join",
+  // Read off the Follow/Join buttons beside posters' names on a live feed in
+  // each language (2026-10-24). Same rule as English: only the button at the
+  // post's own author counts. German showed no Follow button to read.
+  "Seguir", "Unirte",          // Spanish
+  "Participar",                // Portuguese (Brazil) - Join; Follow is "Seguir"
+  "Suivre", "Rejoindre",       // French
+  "Beitreten",                 // German - Join
+  "Ikuti", "Gabung",           // Indonesian
+  "متابعة", "انضمام",          // Arabic
+  // Hungarian. "Követem" reads like "I follow", but it is the button on a Page
+  // you do NOT follow: the same Page showed "Follow" with Facebook in English.
+  "Követem", "Csatlakozás",
+]);
 // The "Open app" bar pinned to the bottom of the mobile web layout. Not a
 // feed post, so it is hidden by its own container rather than by climbing:
 // it is the only fixed-position element in the bottom half of the viewport,
@@ -160,9 +198,55 @@ function labelVariants(el) {
   ];
 }
 
-function reasonForText(text) {
+// Where Facebook puts the ad label: in the line under the poster's name, or
+// beside the "Why am I seeing this ad?" link. Measured on live ads, the label
+// sits after the name heading, outside it, five levels below a short block that
+// holds both - about 100-130 characters of "Name · Sponsored · Paid for by".
+// Anywhere else - a post's own text, a Page called by the word - it is not the
+// label. Only consulted for the words in FOREIGN_SPONSORED_TEXTS.
+const AD_LABEL_MAX_CLIMB = 7;
+const AD_LABEL_NEAR_EXPLAINER = 3;
+const AD_LABEL_LINE_MAX_TEXT = 300;
+const ADS_ABOUT_SELECTOR = 'a[href*="/ads/about"]';
+
+// "explainer" beside the ads link, "byline" in the line under the name, or null.
+function adLabelPosition(el) {
+  if (!el || !el.parentElement) return null;
+  if (el.closest(ADS_ABOUT_SELECTOR)) return "explainer";
+  let node = el;
+  for (let i = 0; i < AD_LABEL_MAX_CLIMB && node.parentElement; i++) {
+    node = node.parentElement;
+    if (i < AD_LABEL_NEAR_EXPLAINER && node.querySelector(ADS_ABOUT_SELECTOR)) return "explainer";
+    const heading = node.querySelector("h2, h3, h4");
+    if (!heading) continue;
+    if (heading.contains(el)) return null;
+    if (!(heading.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) return null;
+    return (node.textContent || "").length <= AD_LABEL_LINE_MAX_TEXT ? "byline" : null;
+  }
+  return null;
+}
+
+// Position alone is not enough in the byline: a short post's own text sits the
+// same five to seven levels below a block holding the name, and that block can
+// be under 300 characters - measured on a live feed. What the label has and
+// post text does not is the separator: in every language read, the label text
+// is "Word ·", the start of "· Paid for by". So in the byline the separator
+// must be there too - or the word must have been reached through a reference,
+// which is how Facebook attaches a label and never how it lays out post text.
+function isForeignAdLabel(rawText, el, viaReference) {
+  const where = adLabelPosition(el);
+  if (where === "explainer") return true;
+  if (where !== "byline") return false;
+  return viaReference || /·\s*$/.test(rawText || "");
+}
+
+function reasonForText(rawText, el, viaReference) {
+  const text = labelKey(rawText);
   if (!text) return null;
   if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
+  if (settings.hideSponsored && FOREIGN_SPONSORED_TEXTS.has(text) && isForeignAdLabel(rawText, el, viaReference)) {
+    return "sponsored";
+  }
   if (settings.hideSuggested && SUGGESTED_TEXTS.has(text)) return "suggested";
   if (settings.hideUnfollowed && UNFOLLOWED_TEXTS.has(text)) return "unfollowed";
   // Gated on the layout as well as the setting: this banner only exists on
@@ -225,7 +309,7 @@ function classifyLabel(el) {
   if (el.children.length === 0) {
     const raw = el.textContent;
     if (raw && raw.length <= 300) {
-      const reason = reasonForText(raw.replace(INVISIBLE_CHARS_RE, "").trim());
+      const reason = reasonForText(raw.replace(INVISIBLE_CHARS_RE, "").trim(), el);
       if (reason) return reason;
     }
   } else if (ownText(el)) {
@@ -234,17 +318,17 @@ function classifyLabel(el) {
     // character-split, so read only its OWN text nodes: one pass over direct
     // children, never descending, which keeps the leaf rule's guarantee against
     // re-walking the same subtree.
-    const reason = reasonForText(ownText(el).replace(INVISIBLE_CHARS_RE, "").trim());
+    const reason = reasonForText(ownText(el).replace(INVISIBLE_CHARS_RE, "").trim(), el);
     if (reason) return reason;
     if (isCharacterSplit(el)) {
       for (const variant of labelVariants(el)) {
-        const r = reasonForText(variant);
+        const r = reasonForText(variant, el);
         if (r) return r;
       }
     }
   } else if (isCharacterSplit(el)) {
     for (const variant of labelVariants(el)) {
-      const reason = reasonForText(variant);
+      const reason = reasonForText(variant, el);
       if (reason) return reason;
     }
   }
@@ -269,7 +353,7 @@ function classifyLabel(el) {
         ? target.textContent.replace(INVISIBLE_CHARS_RE, "").trim()
         : labelTextById.get(id);
       if (text) {
-        const reason = reasonForText(text);
+        const reason = reasonForText(text, el, true);
         if (reason) return reason;
       }
     }
@@ -312,9 +396,11 @@ function classifyLabel(el) {
   //
   // Deliberately limited to the ad labels: "Follow"/"Join" appear as accessible
   // names all over the interface for reasons unrelated to who posted something.
-  for (const { text } of labelRefTexts(el)) {
+  for (const { text: refText } of labelRefTexts(el)) {
+    const text = labelKey(refText);
     if (!text) continue;
     if (settings.hideSponsored && SPONSORED_TEXTS.has(text)) return "sponsored";
+    if (settings.hideSponsored && FOREIGN_SPONSORED_TEXTS.has(text) && isForeignAdLabel(refText, el, true)) return "sponsored";
     if (settings.hideSuggested && SUGGESTED_TEXTS.has(text)) return "suggested";
   }
 
@@ -927,8 +1013,41 @@ function fillPosterName(el, container) {
   }
 }
 
+// The last line of defence, whichever rule chose the element: a post is never
+// the page. Every climb in this file has a stopping rule, and each one has, at
+// some point, failed to stop - the right-hand column, a Marketplace results
+// grid - and taken out everything around one ad. So whatever the route, refuse
+// anything that is or holds the page's main area, feed or navigation, and on a
+// computer anything wider than a feed post. Proposed in a contributor's fork
+// (issue #1). Sections are exempt: they are not posts and are measured apart.
+const PAGE_CONTAINER_SELECTOR = 'main, [role="main"], [role="feed"], [role="banner"], [role="navigation"]';
+let tooWideRefused = 0;
+
+function isPageContainer(el) {
+  return el === document.documentElement || el === document.body ||
+    el.matches(PAGE_CONTAINER_SELECTOR) || !!el.querySelector(PAGE_CONTAINER_SELECTOR);
+}
+
+function tooBigToBeAPost(container) {
+  if (isPageContainer(container)) return true;
+  return !isMobileLayout() && container.getBoundingClientRect().width > FEED_POST_MAX_WIDTH;
+}
+
 function hidePost(container, reason, label, via) {
   if (isPostReason(reason)) container = wholePost(container);
+  // Too big is not the end of it: a post-sized card may sit inside, around the
+  // label - a landmark that wraps a little wider than the post it marks. Hide
+  // that. Only when there is none is the hide refused.
+  if (isPostReason(reason) && tooBigToBeAPost(container)) {
+    const inner = label && label.nodeType === Node.ELEMENT_NODE && container.contains(label)
+      ? climbToCard(label) : null;
+    const card = inner && wholePost(inner);
+    if (!card || !container.contains(card) || tooBigToBeAPost(card)) {
+      tooWideRefused += 1;
+      return;
+    }
+    container = card;
+  }
   if (isPostReason(reason) && wasOpenedOnPurpose(container)) {
     openedPostsSpared += 1;
     return;
@@ -1740,6 +1859,7 @@ function buildDiagnostics() {
     shapeHides: shapeHides.slice(),
     released: viewersReleased,
     spared: openedPostsSpared,
+    tooWide: tooWideRefused,
     pruned: hiddenPostsPruned,
     remembered: hiddenPosts.size,
     // Hides that do not contain who posted it: a picture taken out of a post
@@ -1924,7 +2044,10 @@ function cacheLabelText(id, raw, source) {
   // while the relationship is finally complete. Restricted to the labels we
   // act on so this stays a rare O(1) lookup rather than a querySelector for
   // every id Facebook adds.
-  if (SPONSORED_TEXTS.has(text) || SUGGESTED_TEXTS.has(text)) {
+  // The foreign words go forward too: the element that references this label
+  // is where isForeignAdLabel is checked, when the referrer is classified.
+  const key = labelKey(text);
+  if (SPONSORED_TEXTS.has(key) || SUGGESTED_TEXTS.has(key) || FOREIGN_SPONSORED_TEXTS.has(key)) {
     // The cache lives in the isolated world, so it can't be inspected from the
     // page console. Log the one event that matters instead: an ad's label
     // target existing long enough for us to see it. Silence here means the
@@ -2065,11 +2188,19 @@ function isOutboundLink(a) {
 // neither list, and a timestamp is not a shape Facebook can quietly rename. Not
 // every page load carries these references, so it is one veto among several.
 const TIMESTAMP_RE = /(\bago\b|^(just now|yesterday|today)\b|^\d{1,3}\s?(s|m|h|d|w|y)$|^[a-z]{3,9}\s\d{1,2}(\s|,|$)|\bat\b\s\d{1,2}:\d{2})/i;
+// The same "N hours ago" in the languages read off a live feed (2026-10-24):
+// "hace 3 horas", "há 4 horas", "il y a 2 jours", "vor 5 Stunden",
+// "8 jam yang lalu", "منذ ٦ ساعات" - Arabic in its own digits. This is a veto,
+// so matching more makes the shape rule more careful, never less: in any of
+// these languages an ordinary post sharing a link was otherwise taken for an ad.
+// Hungarian puts it at the end: "6 órája", "2 perce", "kb. egy órája".
+const FOREIGN_TIMESTAMP_RE =
+  /^(hace|há|il y a|vor|منذ)\s|\byang lalu$|\s(perce|[oó]r[aá]ja|napja|hete|h[oó]napja|[eé]ve)$|^kb\.\s/i;
 
 function hasResolvingTimestamp(card) {
   for (const el of card.querySelectorAll("[aria-labelledby]")) {
     for (const { text } of labelRefTexts(el)) {
-      if (text && TIMESTAMP_RE.test(text)) return true;
+      if (text && (TIMESTAMP_RE.test(text) || FOREIGN_TIMESTAMP_RE.test(text))) return true;
     }
   }
   return false;
@@ -2553,10 +2684,20 @@ function sweepUnlabeledAds(root) {
 //
 // Desktop only. The phone site is a different app with none of these
 // landmarks, and nothing here has been measured against it.
-const STORIES_SELECTOR = '[role="region"][aria-label="Stories"]';
+// Labels and headings read off a live feed in Spanish, Portuguese, French,
+// German, Indonesian, Arabic and Hungarian (2026-10-24). Most keep "Stories" and
+// "Reels"; the headings for People you may know are each their own.
+const STORIES_SELECTOR =
+  '[role="region"][aria-label="Stories"], [role="region"][aria-label="Historias"], ' +
+  '[role="region"][aria-label="القصص"], [role="region"][aria-label="Történetek"]';
 const SECTION_HEADINGS = {
-  reels: new Set(["Reels", "Reels and short videos"]),
-  pymk: new Set(["People you may know", "People You May Know"]),
+  reels: new Set(["Reels", "Reels and short videos", "ريلز", "Reels-videók"]),
+  pymk: new Set([
+    "People you may know", "People You May Know",
+    "Personas que quizá conozcas", "Pessoas que talvez você conheça",
+    "Personnes que vous pourriez connaître", "Personen, die du kennen könntest",
+    "Orang yang mungkin Anda kenal",
+  ]),
 };
 const SECTION_SETTING = { stories: "hideStories", reels: "hideReels", pymk: "hidePeopleYouMayKnow" };
 const MIN_REEL_LINKS = 2;
