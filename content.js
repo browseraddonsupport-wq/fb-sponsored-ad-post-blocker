@@ -1854,6 +1854,7 @@ function buildDiagnostics() {
     deferred: labelsDeferred,
     reveals: revealScans,
     lateText: lateTextLabels,
+    lateRef: lateLabelRefs,
     rescued: rescuedLabels,
     unlabeled: unlabeledAdsHidden,
     shapeHides: shapeHides.slice(),
@@ -2314,7 +2315,20 @@ function pageNameOfLink(a) {
   return null;
 }
 
+// The poster is named in the post's heading. The first link in the post is
+// not always theirs: an ad from a Page your friends follow opens with "A Friend
+// and Another Friend follow Some Shop", so the first link was a friend's
+// profile - shown on the placeholder, and written into the keep list by "Not an
+// ad" and into the advertiser list by "This is an ad". Ask the heading first,
+// and fall back to the first link only for a post without one. Headings come
+// in document order, so a post's own comes before any post it quotes.
 function pageNameFor(card) {
+  for (const heading of card.querySelectorAll("h2, h3, h4")) {
+    for (const a of heading.querySelectorAll("a[href]")) {
+      const name = pageNameOfLink(a);
+      if (name) return name;
+    }
+  }
   for (const a of card.querySelectorAll("a[href]")) {
     const name = pageNameOfLink(a);
     if (name) return name;
@@ -2871,6 +2885,27 @@ function recheckLater(container) {
   }
 }
 
+// A post can be given its label reference after both it and the label exist:
+// on a live feed one ad's aria-labelledby="_r_..._" arrived 20s after its "Ad"
+// span. The span's insertion found nobody pointing at it, the post's scan found
+// no reference, and an attribute change is not a childList mutation - so
+// nothing looked again, and the ad stayed up unless its sprite label happened
+// to catch it. Two of two misses in a ten-minute scroll were this. Only the ad
+// labels act on it, as in cacheLabelText.
+let lateLabelRefs = 0;
+
+function noteLabelledByChange(el) {
+  if (el.nodeType !== Node.ELEMENT_NODE || !el.isConnected) return;
+  for (const { text } of labelRefTexts(el)) {
+    const key = labelKey(text);
+    if (SPONSORED_TEXTS.has(key) || SUGGESTED_TEXTS.has(key) || FOREIGN_SPONSORED_TEXTS.has(key)) {
+      lateLabelRefs += 1;
+      processLabel(el);
+      return;
+    }
+  }
+}
+
 const observer = new MutationObserver((mutations) => {
   // Timed unconditionally now. Two performance.now() calls per callback is far
   // cheaper than the thing they measure, and on Android the console this used
@@ -2878,6 +2913,10 @@ const observer = new MutationObserver((mutations) => {
   // read it, which means collecting it in the build people actually install.
   const observerStartedAt = performance.now();
   for (const mutation of mutations) {
+    if (mutation.type === "attributes") {
+      noteLabelledByChange(mutation.target);
+      continue;
+    }
     if (mutation.addedNodes.length > 0 && mutation.target.nodeType === Node.ELEMENT_NODE) {
       // Only worth asking while something is hidden, which keeps this off the
       // hot path on a page where nothing has matched yet.
@@ -2972,7 +3011,10 @@ function startObserving() {
   // which Facebook mutates when it injects styles; the observer's share of
   // wall-clock time is in the diagnostics panel, so a cost here shows up as a
   // number.
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  // aria-labelledby too, and only that attribute - see noteLabelledByChange.
+  observer.observe(document.documentElement, {
+    childList: true, subtree: true, attributes: true, attributeFilter: ["aria-labelledby"],
+  });
   cacheLabelTargets(document.body);
   scanRoot(document.body);
   bootState = "running";

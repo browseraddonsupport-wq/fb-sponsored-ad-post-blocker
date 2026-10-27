@@ -1,0 +1,11 @@
+{
+  "expect": "hidden",
+  "settings": {
+    "showMarkers": true,
+    "hideSponsored": false
+  },
+  "markAsAd": true,
+  "recorded": "someshop",
+  "why": "And 'This is an ad' wrote the friend into the advertiser list - after which the friend's own posts linking off Facebook would have been hidden as ads. It must record the Page in the heading.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"ad\" style=\"width:680px;height:700px\"><div><a href=\"/a.friend\">A Friend</a><span> and </span><a href=\"/another.friend\">Another Friend</a><span> follow Some Shop.</span></div><div><a href=\"/someshop\" aria-label=\"Some Shop\"><svg><image></image></svg></a><h4><a href=\"/someshop\"><span>Some Shop</span></a></h4><div><span>Sponsored ·</span></div></div><span>Discover more picks to explore this weekend, while stocks last.</span><a href=\"/photo/?fbid=1\"><img style=\"width:630px;height:400px;display:block\"></a></div></div></div>"
+}

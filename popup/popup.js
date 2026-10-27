@@ -201,7 +201,7 @@ async function showDiagnostics(tabId) {
     `body: ${d.bodyClass || "(none)"}`,
     `matched ${d.classified}  anchored ${d.anchored}  hidden ${d.hidden}`,
     `deferred ${d.deferred == null ? "?" : d.deferred}  waiting ${d.pending}  reveals ${d.reveals == null ? "?" : d.reveals}`,
-    `late-text ${d.lateText == null ? "?" : d.lateText}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
+    `late-text ${d.lateText == null ? "?" : d.lateText}  late-ref ${d.lateRef == null ? "?" : d.lateRef}  rescued ${d.rescued == null ? "?" : d.rescued}  by-shape ${d.unlabeled == null ? "?" : d.unlabeled}`,
     `viewers released ${d.released == null ? "?" : d.released}  opened posts spared ${d.spared == null ? "?" : d.spared}`,
     `too big to be a post, not hidden ${d.tooWide == null ? "?" : d.tooWide}`,
     `half-hidden posts ${d.partial == null ? "?" : d.partial}${d.partial ? "   <-- a post lost its picture but kept its name" : ""}`,

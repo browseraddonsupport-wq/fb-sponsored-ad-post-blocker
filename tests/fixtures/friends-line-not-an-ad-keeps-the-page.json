@@ -1,0 +1,13 @@
+{
+  "expect": "visible",
+  "check": ".ad",
+  "settings": {
+    "placeholderMode": true
+  },
+  "clickKeep": true,
+  "reload": true,
+  "recorded": "someshop",
+  "recordedKey": "keepPages",
+  "why": "Worse than the wrong name: 'Not an ad' wrote the friend's profile into the keep list instead of the Page. It must keep the Page that posted.",
+  "card": "<div aria-posinset=\"2\"><div><div class=\"ad\" style=\"width:680px;height:700px\"><div><a href=\"/a.friend\">A Friend</a><span> and </span><a href=\"/another.friend\">Another Friend</a><span> follow Some Shop.</span></div><div><a href=\"/someshop\" aria-label=\"Some Shop\"><svg><image></image></svg></a><h4><a href=\"/someshop\"><span>Some Shop</span></a></h4><div><span>Sponsored ·</span></div></div><span>Discover more picks to explore this weekend, while stocks last.</span></div></div></div>"
+}

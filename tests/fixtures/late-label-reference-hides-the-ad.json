@@ -1,0 +1,8 @@
+{
+  "expect": "hidden",
+  "why": "REGRESSION GUARD for the two ads a ten-minute scroll found standing in 1.1.94. The \"Ad\" span existed first, with nothing pointing at it; the post was scanned with no reference to follow; then Facebook set aria-labelledby on the byline - an attribute change, which nothing watched. No outbound link and no button, as on the video ad that was missed, so the shape rule cannot rescue it.",
+  "portal": "<span id=\"_r_late1_\">Ad</span>",
+  "refLater": true,
+  "waitMs": 400,
+  "card": "<div aria-posinset=\"1\"><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h3><a href=\"/advertiser\">Advertiser</a></h3><span data-late-ref=\"_r_late1_\"><svg><use href=\"#SvgEmpty1\"></use></svg></span><span>Crisp, cold and brewed the same way for a hundred years.</span></div></div></div></div>"
+}

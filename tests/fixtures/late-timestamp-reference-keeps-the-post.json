@@ -1,0 +1,8 @@
+{
+  "expect": "visible",
+  "why": "The other side of the late-reference fix. An ordinary post's byline reference also arrives late, pointing at its timestamp; only an ad label may act on it.",
+  "portal": "<span id=\"_r_late2_\">3 hours ago</span>",
+  "refLater": true,
+  "waitMs": 400,
+  "card": "<div aria-posinset=\"1\"><div><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><h3><a href=\"/a.friend\">A Friend</a></h3><span data-late-ref=\"_r_late2_\"><svg><use href=\"#SvgEmpty2\"></use></svg></span><a href=\"/a.friend/posts/123\">permalink</a><span>Went for a long walk by the lake today, the leaves are turning.</span></div></div></div></div>"
+}

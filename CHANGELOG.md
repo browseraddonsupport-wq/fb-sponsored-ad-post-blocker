@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.94 — testing build
+
+### Fixed
+
+- **An ad from a Page your friends follow was credited to a friend.** Such an
+  ad opens with "Your friend and another friend follow …", and the extension
+  took the first person linked in a post to be the poster. So the "Show"
+  placeholder showed your friend's name instead of the advertiser's — and,
+  worse, "Not an ad" put your friend on "Always show these Pages", and "This
+  is an ad" put your friend on "Always treat these Pages as ads", after which
+  their own posts linking off Facebook could be hidden. The poster is now the
+  one named in the post's heading. If you used either button on such an ad,
+  check "Your lists" in the popup for a friend's name and remove it.
+- **Some ads labelled "Ad" stayed in the feed.** Facebook sometimes connects
+  a post to its "Ad" label seconds after the post appears — once, 20 seconds
+  later. The extension only looked when the post first arrived, so unless
+  another clue gave the ad away, it stayed. It now notices the label being
+  connected. In a 14-minute scroll of a live feed, 3 of about 90 ads were
+  missed this way.
+
+### Verified
+
+91 automated tests pass, five of them new. Three cover the placeholder's name
+and what each button records on an ad that opens with a friends line. Two
+cover a label connected late: the ad is hidden, and an ordinary post whose
+timestamp arrives the same way is not. The four ad tests fail on 1.1.93. On a
+live feed, 32 hidden posts were checked: two had been credited to a friend and
+now name the advertiser; the rest are unchanged.
+
 ## 1.1.93
 
 ### Changed

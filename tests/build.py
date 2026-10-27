@@ -244,6 +244,18 @@ CONTENT_JS
       (card || host).appendChild(dialog);
     }
 
+    // The reference arriving late, on its own: the attribute is set once the
+    // scans the card's insertion queued have run, and nothing is scanned after,
+    // so only the observer can see it. Set any sooner and those queued scans
+    // find it - which passed on the code that missed it live, where one ad's
+    // came 20s after its "Ad" span. Needs `waitMs` past the delay.
+    if (f.refLater) {
+      setTimeout(function () {
+        var later = host.querySelector("[data-late-ref]");
+        if (later) later.setAttribute("aria-labelledby", later.getAttribute("data-late-ref"));
+      }, 150);
+    }
+
     if (f.danglingAfterScan) {
       var late = host.querySelector("[data-late-ref]");
       if (late) late.setAttribute("aria-labelledby", late.getAttribute("data-late-ref"));
