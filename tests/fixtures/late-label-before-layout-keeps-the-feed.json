@@ -1,0 +1,10 @@
+{
+  "expect": "visible",
+  "check": "#feed-column",
+  "why": "REGRESSION GUARD for 1.1.94 hiding the whole feed. A late \"Ad\" reference arrived while the feed column had no box, so every size the climb measures was zero and none of its stops fired: it ran up from the ad to the column under main, stopping at the composer's link to the user's own profile. The column has to stay; the ad alone may go.",
+  "refLater": true,
+  "unrenderedWhileLate": "[role=main]",
+  "waitMs": 400,
+  "portal": "<span id=\"_r_late3_\">Ad</span>",
+  "card": "<div role=\"main\"><div id=\"feed-column\"><div><a href=\"/the.user\">The User</a><span>What's on your mind?</span></div><div><div aria-posinset=\"1\"><div><div class=\"x1a2a7pz\" style=\"width:680px;height:500px\"><span data-late-ref=\"_r_late3_\"><svg><use href=\"#SvgEmpty3\"></use></svg></span><span>Stream every season tonight, plans start low.</span></div></div></div></div></div></div>"
+}

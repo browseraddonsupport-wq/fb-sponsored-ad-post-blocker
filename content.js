@@ -859,6 +859,13 @@ function holdsAnotherPost(parent, self) {
 
 function includeByline(node) {
   if (isMobileLayout() || includesByline(node)) return node;
+  // Every stopping rule below measures, and a post Facebook has not laid out
+  // yet measures nothing. Live, a late "Ad" reference arrived while the feed
+  // column had no box: from the zero-size card the climb ran all the way up,
+  // stopping only at the composer's link to the user's own profile - and the
+  // whole feed was hidden as one ad. No box, no climb.
+  const box = node.getBoundingClientRect();
+  if (box.width === 0 && box.height === 0) return node;
   let best = node;
   for (let i = 0; i < SHAPE_MAX_CLIMB; i++) {
     const parent = best.parentElement;
@@ -1025,7 +1032,12 @@ let tooWideRefused = 0;
 
 function isPageContainer(el) {
   return el === document.documentElement || el === document.body ||
-    el.matches(PAGE_CONTAINER_SELECTOR) || !!el.querySelector(PAGE_CONTAINER_SELECTOR);
+    el.matches(PAGE_CONTAINER_SELECTOR) || !!el.querySelector(PAGE_CONTAINER_SELECTOR) ||
+    // The column straight under main is the page's content - composer, stories,
+    // feed - and carries no landmark of its own. Before Facebook lays it out it
+    // has no width either, so neither test above saw it when one ad's hide
+    // climbed to it.
+    !!(el.parentElement && el.parentElement.matches('main, [role="main"]'));
 }
 
 function tooBigToBeAPost(container) {

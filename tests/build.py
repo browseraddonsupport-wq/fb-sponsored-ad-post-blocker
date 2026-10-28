@@ -249,10 +249,17 @@ CONTENT_JS
     // so only the observer can see it. Set any sooner and those queued scans
     // find it - which passed on the code that missed it live, where one ad's
     // came 20s after its "Ad" span. Needs `waitMs` past the delay.
+    // `unrenderedWhileLate` names an element to take out of layout while the
+    // reference arrives and put back after, as Facebook's feed column was when
+    // a late reference hid the whole of it. Name one the extension does not
+    // hide itself, or putting it back undoes the hide being tested.
     if (f.refLater) {
       setTimeout(function () {
+        var unrendered = f.unrenderedWhileLate ? host.querySelector(f.unrenderedWhileLate) : null;
+        if (unrendered) unrendered.style.display = "none";
         var later = host.querySelector("[data-late-ref]");
         if (later) later.setAttribute("aria-labelledby", later.getAttribute("data-late-ref"));
+        if (unrendered) setTimeout(function () { unrendered.style.display = ""; }, 0);
       }, 150);
     }
 

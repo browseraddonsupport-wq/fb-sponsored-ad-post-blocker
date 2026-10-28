@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.95 — testing build
+
+### Fixed
+
+- **1.1.94 could hide the whole News Feed behind one "Sponsored post hidden"
+  bar.** Its new check for "Ad" labels that arrive late could fire while
+  Facebook was still laying the page out, when nothing on it had a size yet.
+  The search for the rest of the post measures sizes to know where a post
+  ends, so with everything at zero it kept going until it reached the whole
+  feed column, stopping at the "What's on your mind?" box. It now stops
+  where it is when nothing has a size, and the feed column itself can never
+  be hidden as a post.
+
+### Verified
+
+92 automated tests pass. The new one reproduces the hidden feed on 1.1.94 —
+an "Ad" label connected while the feed column has no size — and passes on
+this build.
+
 ## 1.1.94
 
 ### Fixed
