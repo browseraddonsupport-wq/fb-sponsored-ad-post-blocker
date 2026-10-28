@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.95 — testing build
+## 1.1.95
 
 ### Fixed
 
