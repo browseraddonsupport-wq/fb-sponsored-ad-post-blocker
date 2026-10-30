@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.96 — testing build
+
+### Fixed
+
+- **Ads from a Page several friends follow stayed up for about 20 seconds.**
+  Such an ad opens with "Three of your friends follow …", and Facebook only
+  connects its "Ad" label about 20 seconds after the post appears. Until
+  then the ad is recognised by its shape, and that check refuses a post that
+  names more than three people or Pages, which is how the Stories tray looks.
+  The friends line pushed these ads over. It no longer counts, so they are
+  hidden as soon as they arrive.
+
+### Verified
+
+94 automated tests pass. Two are new: this ad as Facebook builds it, which
+stays up on 1.1.95, and "This is an ad" on the same ad, which records the
+advertiser, not a friend. On a live feed in Firefox, about 75 ads and
+unfollowed Pages' posts in a row were hidden before reaching the screen.
+
+### Changed
+
+- **A clearer description in the browser's extension list.** It now covers
+  ads, sponsored and suggested posts, and Pages you don't follow, and fits
+  the Chrome Web Store's 132-character summary.
+
 ## 1.1.95
 
 ### Fixed

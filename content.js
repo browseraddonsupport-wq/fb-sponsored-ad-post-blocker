@@ -2444,8 +2444,15 @@ function removeFromPageList(key, name) {
 }
 
 function bylineCount(card) {
+  // A line above the post's heading - "A Friend, Another Friend and A Third
+  // Friend follow Some Shop." - says who follows the poster, not who the post
+  // is about. Counted, it made an ad four subjects, over the limit, and the
+  // ad stood for the 20s until Facebook connected its label. Count from the
+  // heading on.
+  const heading = card.querySelector("h2, h3, h4");
   const subjects = new Set();
   for (const a of card.querySelectorAll("a[href]")) {
+    if (heading && heading.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_PRECEDING) continue;
     const path = linkPath(a);
     if (!path || path === "/" || path === OUTBOUND_PATH) continue;
     // A story tile counts as a subject even though its path is three segments
